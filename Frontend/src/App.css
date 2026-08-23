@@ -264,6 +264,24 @@ button { font: inherit; cursor: pointer; }
 .duration-pill.active { background: var(--water-bg); color: var(--water-fg); border-color: transparent; }
 .duration-pills-lg .duration-pill { padding: clamp(0.5rem, 1.2vh, 0.8rem) 0; font-size: 1rem; }
 
+/* ── Grow light ─────────────────────────── */
+.light-control { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+.light-head { display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; color: var(--text-muted); }
+.light-head svg { width: 14px; height: 14px; }
+.light-state { color: var(--text); }
+.light-state.warn { color: var(--warn); }
+.light-modes { display: flex; gap: 6px; }
+.light-mode-pill { flex: 1; padding: 6px 10px; border-radius: 8px; border: 1px solid var(--border); background: transparent; color: var(--text-muted); font-size: 12px; font-weight: 600; cursor: pointer; }
+.light-mode-pill.active { background: var(--light-bg); color: var(--light-fg); border-color: transparent; }
+.light-mode-pill:hover { filter: brightness(0.97); }
+.light-note { font-size: 11px; color: var(--text-muted); line-height: 1.4; }
+.light-dli { display: flex; flex-direction: column; gap: 2px; padding-top: 8px; border-top: 1px solid var(--border); }
+.light-dli-row { display: flex; align-items: baseline; gap: 5px; }
+.light-dli-value { font-size: 20px; font-weight: 700; color: var(--text); }
+.light-dli-unit { font-size: 11px; color: var(--text-muted); }
+.light-control--compact .light-dli-value { font-size: 18px; }
+
+
 /* ── History tab ─────────────────────────────────────────────── */
 .range-pills { display: flex; gap: 6px; flex-wrap: wrap; }
 .range-pill { padding: 6px 12px; border-radius: 999px; border: 1px solid var(--border); background: transparent; color: var(--text-muted); font-size: 12px; font-weight: 600; }

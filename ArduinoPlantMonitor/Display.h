@@ -48,7 +48,12 @@ public:
     void showConnecting();
     void showScanning();
     void showPumping(int duration);
-    void showSensors(const SensorData& data, unsigned long holdMs = 4000);
+
+    void showSensors(
+        const SensorData& data,
+        float effectiveLux,
+        unsigned long holdMs = 4000
+    );
     void clearOverride();
 
 private:
@@ -60,6 +65,7 @@ private:
     unsigned long overrideUntil;   // 0 means "until clearOverride()"
 
     SensorData lastData;
+    float lastEffectiveLux;
     int pumpDuration;
 
     void drawCentered(const char* text, int y);
@@ -73,7 +79,7 @@ private:
         unsigned long intervalMs
     );
     void drawPumpingScreen(int duration);
-    void drawSensorsScreen(const SensorData& data);
+    void drawSensorsScreen(const SensorData& data, float effectiveLux);
 
     void render();
     bool overrideActive();

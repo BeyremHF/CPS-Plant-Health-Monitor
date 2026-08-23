@@ -52,9 +52,7 @@ your own network:
 #define WIFI_PASSWORD "your-password"
 ```
 
-Use a **2.4 GHz** network — the ESP32 cannot see 5 GHz-only networks. If you skip
-this step the build stops with a message telling you exactly this; it will not
-fail mysteriously.
+Use a **2.4 GHz** network since the ESP32 cannot see 5 GHz-only networks. 
 
 **2. Add ESP32 board support.** File → Preferences → *Additional boards manager
 URLs*:

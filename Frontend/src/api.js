@@ -22,6 +22,14 @@ export function fetchPlantHistory(plantId, n = 100) {
   );
 }
 
+// GET /plant/light?plant_id=basil-1
+//   -> { dli, hours_covered, samples, target, floor }
+// The day's light added up, not the current brightness. Computed by the
+// backend from stored history -- the board does not track it.
+export function fetchDailyLight(plantId) {
+  return request(`/plant/light?plant_id=${encodeURIComponent(plantId)}`);
+}
+
 // POST /pump -> { success, duration }
 export function triggerPumpBackend(duration) {
   return request("/pump", {

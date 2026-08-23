@@ -14,6 +14,9 @@ struct SensorData {
 
 bool initSensors();
 
+// Exposed so the light control can flush a stale conversion after switching the light strip
+float readLight();
+
 SensorData readSensors();
 
 #endif

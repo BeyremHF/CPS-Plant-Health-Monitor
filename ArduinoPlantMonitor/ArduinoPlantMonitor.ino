@@ -27,11 +27,12 @@ unsigned long dryStartMs = 0;
 // is alive; 0 means it has not been heard from since boot.
 unsigned long lastRemoteMs = 0;
 
-// Works out which face to show from the latest reading. This lives on the
-// board on purpose: the screen keeps telling the truth even with no WiFi and
-// no backend running.
+// Works out which face to show from the latest reading.
+//
 // Counts how many of the plant's needs are currently unmet. Exposed so the
 // serial report can show which ones, rather than just the verdict.
+//
+// Water and temperature only
 int countStressFactors(const SensorData& data) {
 
     int factors = 0;
@@ -41,10 +42,6 @@ int countStressFactors(const SensorData& data) {
     }
 
     if (data.temperature < TEMP_MIN || data.temperature > TEMP_MAX) {
-        factors++;
-    }
-
-    if (data.light < LIGHT_MIN) {
         factors++;
     }
 
@@ -74,9 +71,9 @@ PlantState evaluatePlantState(const SensorData& data) {
 }
 
 
-// Machine-readable form, published to Firebase so the web dashboard can render
-// the same verdict. Kept separate from plantStateName() because that one is
-// for humans reading the serial log and may be reworded freely.
+// Machine-readable form, published to Firebase so the web dashboard can render the same
+// This is kept separate from plantStateName() because that one is for humans to read the
+// serial log and that may be reworded
 const char* plantStateSlug(PlantState state) {
 
     if (state == PlantState::HEALTHY) {
@@ -105,8 +102,7 @@ const char* plantStateName(PlantState state) {
 }
 
 
-// millis() since a recorded moment, in whole seconds. Rollover-safe because
-// the subtraction is done in unsigned arithmetic.
+// millis() since a recorded moment, in whole seconds
 unsigned long secondsSince(unsigned long since) {
     return (millis() - since) / 1000UL;
 }
@@ -127,8 +123,7 @@ const char* waterSourceName(WaterSource source) {
 
 
 // Runs the pump and blocks for the duration. Both the remote path and the
-// fallback path go through here so the logging and the dry-clock reset can
-// never drift apart.
+// fallback path go through here so the logging and the dry-clock reset will always be the same
 void runPump(int seconds, WaterSource source) {
 
     Serial.printf("[pump] ON for %d s -- requested by %s\n",
@@ -182,15 +177,349 @@ bool fallbackDue() {
 }
 
 
-// One readable block per sensor cycle: what was measured, how it compares to
-// the thresholds in Config.h, and what the pump is actually doing.
+// ---- light ----
 //
-// Note the watering line is a *prediction*, not a decision. This board never
-// decides to water -- the backend compares moisture against its own threshold
-// and sets the flag in Firebase. The backend parses WATERING_THRESHOLD out of
-// Config.h, so the two cannot disagree on the number; if the verdict and the
-// pump disagree, the backend is either not running or working from a staler
-// reading.
+// The sensor's only job here is to turn off (to veto) the lamp when the room is
+// already bright enough that running it would be pointless.
+
+enum class LightMode { AUTO, MANUAL_ON, MANUAL_OFF };
+
+LightMode lightMode = LightMode::AUTO;
+
+// When the current manual override was first seen, so MANUAL_ON can expire.
+unsigned long lightManualMs = 0;
+
+bool lightIsOn = false;
+
+// millis() at the last relay change, or 0 if it has not moved since boot --
+// which lets the very first switch happen immediately instead of waiting out
+// a cooldown that never started.
+unsigned long lightSwitchedMs = 0;
+
+bool lightVetoed = false;
+
+// False until NTP answers. Without a clock there is no photoperiod to be in,
+// and the board holds the lamp off rather than guessing the hour.
+bool lightTimeKnown = false;
+
+// The last ambient reading. Ambient means the natural ambient lux without the light strip.
+float lastAmbientLux = 0;
+
+// The last effective reading: ambient plus the lamp, when the lamp was on.
+// This is what the plant receives.
+// This number is reported, but not used for controlling
+float lastEffectiveLux = 0;
+
+// When ambient was last actually measured
+// 0 means never (so the first cycle always measures)
+unsigned long lastAmbientMs = 0;
+
+
+bool inPhotoperiod(int hour) {
+    return hour >= LIGHT_HOUR_START && hour < LIGHT_HOUR_END;
+}
+
+
+bool lightCooldownActive() {
+
+    if (lightSwitchedMs == 0) {
+        return false;
+    }
+
+    return (millis() - lightSwitchedMs) < LIGHT_COOLDOWN_MS;
+}
+
+
+// True once ambient has actually been measured at least once. The dip schedule
+// and the startup gate both hang off this, because they are the same question:
+// has this board ever seen what the room looks like?
+bool haveAmbient() {
+    return lastAmbientMs != 0;
+}
+
+
+// True when ambient is due to be measured again rather than carried forward.
+// See LIGHT_AMBIENT_MS in Config.h: if that interval is too often, it may wear off the relay.
+bool ambientDue() {
+
+    if (!haveAmbient()) {
+        return true;
+    }
+
+    return (millis() - lastAmbientMs) >= LIGHT_AMBIENT_MS;
+}
+
+
+// Two light numbers
+//
+//   effective -- what the plant is receiving right now, lamp included
+//   ambient   -- the room on its own, which needs the lamp switched off
+//
+// The control rule needs ambient
+SensorData readSensorsWithLight(float& effectiveLux) {
+
+    SensorData data = readSensors();
+
+    // Lamp dark already: this one reading is both numbers, for free.
+    if (!lightIsOn) {
+        effectiveLux = data.light;
+        lastAmbientLux = data.light;
+        lastAmbientMs = millis();
+        return data;
+    }
+
+    // Lamp on, so what was just read includes it.
+    effectiveLux = data.light;
+
+    if (!ambientDue()) {
+        data.light = lastAmbientLux;
+        return data;
+    }
+
+    digitalWrite(RELAY_LIGHT_PIN, LOW);
+    delay(LIGHT_SETTLE_MS);
+
+    // Discarded: this conversion may have started while the lamp was lit.
+    readLight();
+
+    data.light = readLight();
+
+    digitalWrite(RELAY_LIGHT_PIN, HIGH);
+
+    lastAmbientLux = data.light;
+    lastAmbientMs = millis();
+
+    return data;
+}
+
+
+void updateLightVeto(float ambientLux) {
+
+    if (!lightVetoed && ambientLux > LIGHT_VETO_LUX) {
+        lightVetoed = true;
+        Serial.printf("[light] ambient %.1f lx > %.1f -- lamp not worth running\n",
+                      ambientLux, LIGHT_VETO_LUX);
+        return;
+    }
+
+    if (lightVetoed && ambientLux < LIGHT_VETO_CLEAR_LUX) {
+        lightVetoed = false;
+        Serial.printf("[light] ambient %.1f lx < %.1f -- veto lifted\n",
+                      ambientLux, LIGHT_VETO_CLEAR_LUX);
+    }
+}
+
+
+void pollLightMode() {
+
+    String mode = checkLightMode();
+
+    LightMode wanted = LightMode::AUTO;
+
+    if (mode == "on") {
+        wanted = LightMode::MANUAL_ON;
+    }
+    else if (mode == "off") {
+        wanted = LightMode::MANUAL_OFF;
+    }
+
+    if (wanted == lightMode) {
+        return;
+    }
+
+    Serial.printf("[light] mode is now %s\n", mode.c_str());
+
+    lightMode = wanted;
+    lightManualMs = millis();
+    lightSwitchedMs = 0;
+}
+
+
+// A manual ON reverts to auto by itself, and the board clears the flag in
+// Firebase the same way it clears the pump trigger after acting on it.
+void expireLightManual() {
+
+    if (lightMode != LightMode::MANUAL_ON) {
+        return;
+    }
+
+    if ((millis() - lightManualMs) < LIGHT_MANUAL_MS) {
+        return;
+    }
+
+    Serial.println("[light] manual ON expired -- back to auto");
+
+    lightMode = LightMode::AUTO;
+    sendLightMode("auto");
+}
+
+
+// The whole rule, in one place: time decides, the sensor only vetoes.
+bool lightShouldBeOn() {
+
+    if (!LIGHT_CONTROL_ENABLED) {
+        return false;
+    }
+
+    if (lightMode == LightMode::MANUAL_OFF) {
+        return false;
+    }
+
+    if (lightMode == LightMode::MANUAL_ON) {
+        return true;
+    }
+
+    struct tm now;
+
+    // Short timeout on purpose. getLocalTime() defaults to five seconds, which
+    // would stall the entire loop on every pass while the clock is unset.
+    if (!getLocalTime(&now, 10)) {
+        lightTimeKnown = false;
+        return false;
+    }
+
+    lightTimeKnown = true;
+
+    // No decision before the first reading exists. Deciding on no data means
+    // deciding "not vetoed", which switches the lamp on and arms the cooldown --
+    // and the cooldown then blocks the correction for a full five minutes once the
+    // first reading disagrees. Waiting up to one sensor cycle costs nothing and
+    // saves a pointless relay cycle on every boot.
+    if (!haveAmbient()) {
+        return false;
+    }
+
+    if (!inPhotoperiod(now.tm_hour)) {
+        return false;
+    }
+
+    return !lightVetoed;
+}
+
+
+void applyLight(bool wanted) {
+
+    if (wanted == lightIsOn) {
+        return;
+    }
+
+    if (lightCooldownActive()) {
+        return;
+    }
+
+    digitalWrite(RELAY_LIGHT_PIN, wanted ? HIGH : LOW);
+
+    lightIsOn = wanted;
+    lightSwitchedMs = millis();
+
+    Serial.printf("[light] lamp %s\n", wanted ? "ON" : "OFF");
+}
+
+
+// What the board reports back to Firebase. "no_time" is not a lamp fault: it
+// means NTP never answered, so there is no photoperiod to be inside, and the
+// board is refusing to run the lamp at an hour it cannot name.
+const char* lightStateSlug() {
+
+    if (lightIsOn) {
+        return "on";
+    }
+
+    if (lightMode == LightMode::AUTO && !lightTimeKnown) {
+        return "no_time";
+    }
+
+    return "off";
+}
+
+
+// Only written when it changes. This loop runs every couple of seconds and the
+// dashboard has no use for a write that often.
+void publishLightState() {
+
+    static String lastPublished = "";
+
+    String slug = lightStateSlug();
+
+    if (slug == lastPublished) {
+        return;
+    }
+
+    sendLightState(slug.c_str());
+    lastPublished = slug;
+}
+
+
+String lightSummary() {
+
+    if (lightMode == LightMode::MANUAL_ON) {
+        return String("ON (manual, ")
+             + ((LIGHT_MANUAL_MS - (millis() - lightManualMs)) / 1000UL)
+             + " s left)";
+    }
+
+    if (lightMode == LightMode::MANUAL_OFF) {
+        return "off (manual)";
+    }
+
+    struct tm now;
+
+    if (!getLocalTime(&now, 10)) {
+        return "off (auto, NO CLOCK)";
+    }
+
+    char clock[6];
+    strftime(clock, sizeof(clock), "%H:%M", &now);
+
+    if (!haveAmbient()) {
+        return String("off (auto, ") + clock + ", no light reading yet)";
+    }
+
+    String why;
+
+    if (!inPhotoperiod(now.tm_hour)) {
+        why = String("outside ") + LIGHT_HOUR_START + "-" + LIGHT_HOUR_END;
+    }
+    else if (lightVetoed) {
+        why = String("vetoed, room ") + String(lastAmbientLux, 0) + " lx";
+    }
+    else {
+        why = String("window ") + LIGHT_HOUR_START + "-" + LIGHT_HOUR_END;
+    }
+
+    if (lightCooldownActive()) {
+        why += String(", cooldown ")
+             + ((LIGHT_COOLDOWN_MS - (millis() - lightSwitchedMs)) / 1000UL)
+             + " s left";
+    }
+
+    return String(lightIsOn ? "ON" : "off")
+         + " (auto, " + clock + ", " + why + ")";
+}
+
+
+// One line for the pump: what it is doing, and who last made it do something.
+String pumpSummary(bool pumpTriggered, int pumpSeconds) {
+
+    if (pumpTriggered) {
+        return String("RUNNING ") + pumpSeconds + " s";
+    }
+
+    String state = "idle";
+
+    if (dryStartMs != 0 && FALLBACK_ENABLED) {
+        state += String(" (dry ") + secondsSince(dryStartMs)
+               + "/" + (FALLBACK_GRACE_MS / 1000UL) + " s)";
+    }
+
+    if (lastWaterSource != WaterSource::NONE) {
+        state += String(", last ") + waterSourceName(lastWaterSource)
+               + " " + secondsSince(lastWaterMs) + " s ago";
+    }
+
+    return state;
+}
+
 void logSensorReport(const SensorData& data, bool pumpTriggered, int pumpSeconds) {
 
     Serial.println();
@@ -198,81 +527,21 @@ void logSensorReport(const SensorData& data, bool pumpTriggered, int pumpSeconds
     Serial.printf("Temperature : %.1f C\n",   data.temperature);
     Serial.printf("Humidity    : %.1f %%\n",  data.humidity);
     Serial.printf("Pressure    : %.1f hPa\n", data.pressure);
-    Serial.printf("Light       : %.1f lx\n",  data.light);
+    Serial.printf("Light       : %.1f lx (ambient, %lu s ago)\n",
+                  data.light, secondsSince(lastAmbientMs));
+    Serial.printf("At plant    : %.1f lx\n",  lastEffectiveLux);
     Serial.printf("Soil        : %.1f %% (raw ADC %d)\n",
                   data.soilMoisture, data.soilRaw);
 
-    Serial.println("------------- STATE ---------------");
-    Serial.printf("Face        : healthy >= %.1f %%, moderate >= %.1f %%\n",
-                  MOISTURE_HEALTHY_MIN, MOISTURE_MODERATE_MIN);
-    Serial.printf("Water below : %.1f %% (shared with the backend)\n",
-                  WATERING_THRESHOLD);
-    Serial.printf("Plant state : %s (%d stress factor(s))\n",
-                  plantStateName(evaluatePlantState(data)),
-                  countStressFactors(data));
-    Serial.printf("  moisture  : %.1f %% %s (need >= %.1f)\n",
-                  data.soilMoisture,
-                  data.soilMoisture < MOISTURE_HEALTHY_MIN ? "STRESS" : "ok",
-                  MOISTURE_HEALTHY_MIN);
-    Serial.printf("  temp      : %.1f C %s (need %.1f-%.1f)\n",
-                  data.temperature,
-                  (data.temperature < TEMP_MIN || data.temperature > TEMP_MAX)
-                      ? "STRESS" : "ok",
-                  TEMP_MIN, TEMP_MAX);
-    Serial.printf("  light     : %.1f lx %s (need >= %.1f)\n",
-                  data.light,
-                  data.light < LIGHT_MIN ? "STRESS" : "ok",
-                  LIGHT_MIN);
-
-    if (data.soilMoisture < WATERING_THRESHOLD) {
-        Serial.printf("Watering    : %.1f %% < %.1f %% -> NEEDS WATER\n",
-                      data.soilMoisture, WATERING_THRESHOLD);
-    }
-    else {
-        Serial.printf("Watering    : %.1f %% >= %.1f %% -> not needed\n",
-                      data.soilMoisture, WATERING_THRESHOLD);
-    }
-
-    if (pumpTriggered) {
-        Serial.printf("Pump        : TRIGGERED for %d s\n", pumpSeconds);
-    }
-    else {
-        Serial.println("Pump        : not triggered");
-    }
-
-
-    Serial.println("------------- CONTROL -------------");
-
-    if (!FALLBACK_ENABLED) {
-        Serial.println("Mode        : backend only (fallback disabled)");
-    }
-    else if (dryStartMs == 0) {
-        Serial.println("Mode        : backend (soil is wet, fallback idle)");
-    }
-    else {
-        Serial.printf("Mode        : backend, board fallback armed\n");
-        Serial.printf("Dry for     : %lu s of %lu s before the board acts\n",
-                      secondsSince(dryStartMs), FALLBACK_GRACE_MS / 1000UL);
-    }
-
-    if (lastRemoteMs == 0) {
-        Serial.println("Backend     : NOT SEEN since boot");
-    }
-    else {
-        Serial.printf("Backend     : last set the flag %lu s ago\n",
-                      secondsSince(lastRemoteMs));
-    }
-
-    if (lastWaterSource == WaterSource::NONE) {
-        Serial.println("Last water  : none since boot");
-    }
-    else {
-        Serial.printf("Last water  : %lu s ago, by %s\n",
-                      secondsSince(lastWaterMs),
-                      waterSourceName(lastWaterSource));
-    }
+    Serial.println("-----------------------------------");
+    Serial.printf("State       : %s\n",
+                  plantStateName(evaluatePlantState(data)));
+    Serial.printf("Lamp        : %s\n",
+                  lightSummary().c_str());
     Serial.println("-----------------------------------");
 }
+
+
 
 void setup() {
 
@@ -359,11 +628,6 @@ void loop() {
         runPump(WATERING_PUMP_SECONDS, WaterSource::FALLBACK);
     }
 
-    digitalWrite(RELAY_LIGHT_PIN, HIGH);
-    display.updateFor(3000);
-    digitalWrite(RELAY_LIGHT_PIN, LOW);
-
-
     // Sensors every SENSOR_INTERVAL seconds
     if (
         millis() - lastSensorSend
@@ -376,30 +640,37 @@ void loop() {
         display.showScanning();
         display.updateFor(SCAN_SCREEN_MS);
 
+        // data.light is ambient
         SensorData data =
-            readSensors();
+            readSensorsWithLight(lastEffectiveLux);
 
-        // The face follows the newest reading, and the same verdict is what
-        // gets published, so the OLED and the dashboard cannot disagree.
+        updateLightVeto(data.light);
+
+        // The face follows the newest reading
         PlantState state = evaluatePlantState(data);
 
         display.setPlantState(state);
 
-        // Must run before the report so the CONTROL section reflects this
-        // reading rather than the previous one.
+        // Must run before the report
         updateDryClock(data.soilMoisture);
 
         logSensorReport(data, lastPumpTrigger, pump_duration);
 
         // Show what was just measured, then fall back to the face on its own.
-        display.showSensors(data, SENSOR_SCREEN_MS);
+        display.showSensors(data, lastEffectiveLux, SENSOR_SCREEN_MS);
 
         // Blue LED while sending
         setLED(0, 0, 255);
-        sendSensorData(data, plantStateSlug(state));
+        sendSensorData(data, plantStateSlug(state), lightIsOn, lastEffectiveLux);
         setLED(0, 0, 0);
         lastSensorSend = millis();
     }
+
+    // Light
+    pollLightMode();
+    expireLightManual();
+    applyLight(lightShouldBeOn());
+    publishLightState();
 
     // Keeps the screen animating instead of freezing on one frame.
     display.updateFor(LOOP_INTERVAL);

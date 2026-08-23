@@ -12,7 +12,7 @@ import {
   normalizeHistoryRecords,
   recordsToChartData,
 } from "./historyAnalytics";
-import { fetchPlantHistory, fetchPlantStatus, triggerPumpBackend } from "./api";
+import { fetchDailyLight, fetchPlantHistory, fetchPlantStatus, triggerPumpBackend } from "./api";
 import "./App.css";
 
 const BACKEND_POLL_MS = 30_000; // matches backend UPDATE_INTERVAL_SECONDS
@@ -145,6 +145,79 @@ function getNotifications(sensors, thresholds, reservoirEmpty) {
   return n;
 }
 
+/* ── Grow light ─────────────────────────────────────────────── */
+const LIGHT_STATE_LABEL = {
+  on:      "Lamp on",
+  off:     "Lamp off",
+  no_time: "No clock — lamp held off",
+};
+
+// The day's light total, shown as a number and never as a verdict. The lamp is
+// supplementary and known to be under-powered for this plant, so folding this
+// into the plant face would peg the face at "stressed" permanently and cost it
+// a whole level of resolution. Hours covered sits alongside because a low
+// total from a board that spent the night switched off is not the same thing
+// as a low total from a dim day.
+function DailyLight({ daily }) {
+  if (!daily) return null;
+  if (daily.dli == null)
+    return <div className="light-note">Daily light: not enough readings yet</div>;
+  return (
+    <div className="light-dli">
+      <div className="light-dli-row">
+        <span className="light-dli-value">{daily.dli}</span>
+        <span className="light-dli-unit">mol/m²/day</span>
+      </div>
+      <div className="light-note">
+        basil wants {daily.target}, struggles below {daily.floor}
+      </div>
+      <div className="light-note">
+        measured over {daily.hours_covered} h of the last 24
+      </div>
+    </div>
+  );
+}
+
+// `ambient` is the room measured with the lamp dropped; `effective` is what the
+// plant is receiving, lamp included. The board measures both every cycle. They
+// are equal whenever the lamp is off, so the room figure is only worth showing
+// when the lamp is actually adding something.
+function LightControl({ mode, state, onSetMode, daily, ambient, effective, compact = false }) {
+  const lampAdds = ambient != null && effective != null && effective - ambient > 1;
+  return (
+    <div className={"light-control" + (compact ? " light-control--compact" : "")}>
+      <div className="light-head">
+        {I.bulb}
+        <span className={"light-state" + (state === "no_time" ? " warn" : "")}>
+          {LIGHT_STATE_LABEL[state] ?? "Lamp state unknown"}
+        </span>
+      </div>
+      {effective != null && (
+        <div className="light-note">
+          {Math.round(effective)} lx at the plant
+          {lampAdds && ` — the room alone is ${Math.round(ambient)} lx`}
+        </div>
+      )}
+      <div className="light-modes">
+        {[["auto", "Auto"], ["on", "On"], ["off", "Off"]].map(([val, lbl]) => (
+          <button
+            key={val}
+            className={"light-mode-pill" + (mode === val ? " active" : "")}
+            onClick={() => onSetMode(val)}
+          >{lbl}</button>
+        ))}
+      </div>
+      {mode === "on" && (
+        <div className="light-note">Reverts to Auto after 2 hours.</div>
+      )}
+      {mode === "auto" && (
+        <div className="light-note">06:00–22:00, unless the room is already bright.</div>
+      )}
+      <DailyLight daily={daily}/>
+    </div>
+  );
+}
+
 /* ── Sensor cell ────────────────────────────────────────────── */
 function Sensor({ icon, label, value, unit, decimals = 0 }) {
   return (
@@ -229,6 +302,10 @@ export default function App() {
   const [sensors,   setSensors]   = useState(null);
   const [lastUpdate,setLastUpdate]= useState(null);
   const [memHistory,setMemHistory]= useState({ moisture:[], temperature:[], humidity:[], light:[], pressure:[], vpd:[] });
+  // What the lamp is doing, straight from the board. `mode` is intent, `state`
+  // is the relay's actual position -- see LightControl.
+  const [light,setLight]          = useState({ mode:"auto", state:null });
+  const [dailyLight,setDailyLight]= useState(null);
   const [history,   setHistory]   = useState(null);
   const [historyError, setHistoryError] = useState(null);
   const [activePlant,   setActivePlant]   = useState(PLANTS[0].id);
@@ -263,6 +340,15 @@ export default function App() {
     const fn = e => setIsMobile(e.matches);
     mq.addEventListener("change", fn);
     return () => mq.removeEventListener("change", fn);
+  }, []);
+
+  // The board owns the lamp; this only reads what it is doing and writes what
+  // the person wants. Unlike the pump, no backend sits in between.
+  useEffect(() => {
+    return onValue(ref(database, "light"), snap => {
+      const v = snap.val() ?? {};
+      setLight({ mode: v.mode ?? "auto", state: v.state ?? null });
+    });
   }, []);
 
   useEffect(() => {
@@ -331,6 +417,24 @@ export default function App() {
     return () => { cancelled = true; clearInterval(interval); };
   }, []);
 
+  // Polled
+  useEffect(() => {
+    let cancelled = false;
+
+    const load = async () => {
+      try {
+        const d = await fetchDailyLight(activePlant);
+        if (!cancelled) setDailyLight(d);
+      } catch {
+        if (!cancelled) setDailyLight(null);
+      }
+    };
+
+    load();
+    const t = setInterval(load, BACKEND_POLL_MS);
+    return () => { cancelled = true; clearInterval(t); };
+  }, [activePlant]);
+
   const notifications = useMemo(() =>
     getNotifications(sensors, ps.thresholds, reservoirEmpty),
     [sensors, ps.thresholds, reservoirEmpty]
@@ -361,14 +465,17 @@ export default function App() {
       waterPending.current = false;
     }
   };
-  const triggerLight = () => set(ref(database, "light/trigger"), true);
+  // Writes intent only. The board clears a manual "on" itself once it expires,
+  // so nothing here has to remember to tidy up -- which is what went wrong with
+  // the light/trigger flag this replaced.
+  const setLightMode = (mode) => set(ref(database, "light/mode"), mode);
 
   const goToChart = (key) => { setActiveNav("history"); setEnlargedChart(key); };
   const updated = lastUpdate ? "Updated " + timeAgo(lastUpdate) : "Waiting…";
 
   const shared = {
     sensors, notifications, mood, statusHeadline, memHistory, history, historyError,
-    ps, updatePS, triggerPump, triggerLight,
+    ps, updatePS, triggerPump, light, setLightMode, dailyLight,
     updated, activePlant, setActivePlant, activePlantLabel,
     theme, setTheme,
     enlargedChart, setEnlargedChart,
@@ -456,7 +563,7 @@ const GRAPH_DEFS = [
 ];
 
 function OverviewTab(p) {
-  const { sensors, notifications, mood, statusHeadline, memHistory, ps, updatePS, triggerPump, triggerLight, updated, activePlantLabel, goToChart,
+  const { sensors, notifications, mood, statusHeadline, memHistory, ps, updatePS, triggerPump, light, setLightMode, dailyLight, updated, activePlantLabel, goToChart,
           plantStatus, plantStatusError, plantStatusLoading } = p;
   const activeGraphs = GRAPH_DEFS.filter(g => ps.graphs[g.key]);
   const gridCols = activeGraphs.map(()=>"1fr").join(" ");
@@ -517,8 +624,15 @@ function OverviewTab(p) {
           </div>
           <div className="bmo-actions">
             <button className="btn-water" onClick={triggerPump}>{I.drop} Water now</button>
-            <button className="btn-light" onClick={triggerLight}>{I.bulb} Turn on light</button>
           </div>
+          <LightControl
+            mode={light.mode}
+            state={light.state}
+            onSetMode={setLightMode}
+            daily={dailyLight}
+            ambient={sensors?.light}
+            effective={sensors?.light_effective}
+          />
         </div>
 
         <MLPredictionCard prediction={plantStatus} error={plantStatusError} loading={plantStatusLoading}/>
@@ -881,7 +995,7 @@ function SettingSlider({ icon, label, suffix, min, max, step, value, onChange })
    Mobile shell
    ══════════════════════════════════════════════════════════════ */
 function MobileShell(p) {
-  const { sensors, notifications, mood, statusHeadline, memHistory, ps, triggerPump, triggerLight, updated, activePlantLabel, theme, setTheme, goToChart,
+  const { sensors, notifications, mood, statusHeadline, memHistory, ps, triggerPump, light, setLightMode, dailyLight, updated, activePlantLabel, theme, setTheme, goToChart,
           plantStatus, plantStatusError, plantStatusLoading } = p;
   const [tab, setTab] = useState("overview");
   const activeGraphs = GRAPH_DEFS.filter(g => ps.graphs[g.key]);
@@ -916,7 +1030,17 @@ function MobileShell(p) {
             </div>
             <div className="mobile-actions">
               <button className="btn-water" onClick={triggerPump}>{I.drop} Water now</button>
-              <button className="btn-light" onClick={triggerLight}>{I.bulb} Light on</button>
+            </div>
+            <div className="card">
+              <LightControl
+                mode={light.mode}
+                state={light.state}
+                onSetMode={setLightMode}
+                daily={dailyLight}
+                ambient={sensors?.light}
+                effective={sensors?.light_effective}
+                compact
+              />
             </div>
             <MLPredictionCard prediction={plantStatus} error={plantStatusError} loading={plantStatusLoading}/>
             <div className="mobile-sensor-grid">

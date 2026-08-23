@@ -78,10 +78,9 @@ void initWiFi() {
 
     setLED(0, 0, 0);
 
-    // NTP
-    configTime(
-        0,
-        0,
+    // NTP. Local German time
+    configTzTime(
+        TZ_GERMANY,
         "pool.ntp.org",
         "time.nist.gov"
     );
@@ -156,10 +155,69 @@ bool checkPump(int &duration) {
     return false;
 }
 
+// Light
+//
+// Any failure here returns "auto"
+String checkLightMode() {
+
+    String response = firebaseRequest("GET", "/light/mode.json");
+
+    if (response == "") {
+        return "auto";
+    }
+
+    JsonDocument doc;
+
+    DeserializationError error = deserializeJson(doc, response);
+
+    if (error) {
+        Serial.print("Light JSON error: ");
+        Serial.println(error.c_str());
+        return "auto";
+    }
+
+    const char* mode = doc.as<const char*>();
+
+    if (mode == nullptr) {
+        return "auto";
+    }
+
+    String value(mode);
+
+    if (value == "auto" || value == "on" || value == "off") {
+        return value;
+    }
+
+    return "auto";
+}
+
+
+// Used by the board to clear its own expired manual override, the same way it
+// clears the pump trigger after acting on it.
+void sendLightMode(const char* mode) {
+    firebaseRequest(
+        "PUT",
+        "/light/mode.json",
+        String("\"") + mode + "\""
+    );
+}
+
+
+void sendLightState(const char* state) {
+    firebaseRequest(
+        "PUT",
+        "/light/state.json",
+        String("\"") + state + "\""
+    );
+}
+
+
 // Send sensors
 void sendSensorData(
     const SensorData& data,
-    const char* state
+    const char* state,
+    bool lampOn,
+    float effectiveLux
 ) {
 
     JsonDocument doc;
@@ -182,6 +240,11 @@ void sendSensorData(
     doc["soil_raw"] = data.soilRaw;
 
     doc["state"] = state;
+
+    doc["light_effective"] =
+        round(effectiveLux * 10) / 10.0;
+
+    doc["lamp"] = lampOn;
 
     time_t now;
 

@@ -39,6 +39,7 @@ Display::Display()
       plantState(PlantState::HEALTHY),
       activeScreen(DisplayScreen::FACE),
       overrideUntil(0),
+      lastEffectiveLux(0),
       pumpDuration(0)
 {
     lastData = SensorData();
@@ -180,7 +181,11 @@ void Display::drawPumpingScreen(int duration) {
     drawCentered(buffer, 58);
 }
 
-void Display::drawSensorsScreen(const SensorData& data) {
+// Five rows on a 64 px screen. The 5x7 font is 7 px tall, so 9 px spacing
+// leaves a pixel of air between rows and still finishes at y=56, clear of the
+// bottom edge at 63. The labels are all padded to ten characters so the values
+// line up in one column.
+void Display::drawSensorsScreen(const SensorData& data, float effectiveLux) {
 
     u8g2.setFontMode(1);
     u8g2.setBitmapMode(1);
@@ -198,7 +203,7 @@ void Display::drawSensorsScreen(const SensorData& data) {
         "Temp:     %.1f C",
         data.temperature
     );
-    u8g2.drawStr(5, 25, buffer);
+    u8g2.drawStr(5, 20, buffer);
 
     snprintf(
         buffer,
@@ -206,7 +211,7 @@ void Display::drawSensorsScreen(const SensorData& data) {
         "Humidity: %.0f %%",
         data.humidity
     );
-    u8g2.drawStr(5, 35, buffer);
+    u8g2.drawStr(5, 29, buffer);
 
     snprintf(
         buffer,
@@ -214,15 +219,25 @@ void Display::drawSensorsScreen(const SensorData& data) {
         "Soil:     %.0f %%",
         data.soilMoisture
     );
-    u8g2.drawStr(5, 45, buffer);
+    u8g2.drawStr(5, 38, buffer);
 
+    // The room on its own -- the lamp is switched off while this is measured.
     snprintf(
         buffer,
         sizeof(buffer),
-        "Light:    %.0f lx",
+        "Ambient:  %.0f lx",
         data.light
     );
-    u8g2.drawStr(5, 55, buffer);
+    u8g2.drawStr(5, 47, buffer);
+
+    // What the plant is actually receiving, lamp included.
+    snprintf(
+        buffer,
+        sizeof(buffer),
+        "At plant: %.0f lx",
+        effectiveLux
+    );
+    u8g2.drawStr(5, 56, buffer);
 }
 
 // Takeover screens
@@ -247,11 +262,13 @@ void Display::showPumping(int duration) {
 
 void Display::showSensors(
     const SensorData& data,
+    float effectiveLux,
     unsigned long holdMs
 ) {
     activeScreen = DisplayScreen::SENSORS;
     overrideUntil = millis() + holdMs;
     lastData = data;
+    lastEffectiveLux = effectiveLux;
     render();
 }
 
@@ -284,7 +301,7 @@ void Display::render() {
             break;
 
         case DisplayScreen::SENSORS:
-            drawSensorsScreen(lastData);
+            drawSensorsScreen(lastData, lastEffectiveLux);
             break;
 
         case DisplayScreen::FACE:
