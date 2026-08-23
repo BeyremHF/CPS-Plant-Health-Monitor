@@ -143,10 +143,19 @@ model = joblib.load(MODEL_PATH)
 label_encoder = joblib.load(ENCODER_PATH)
 
 
+# The model's class names ("Healthy", "Moderate Stress", "High Stress") are
+# almost word for word the board's plant states, which are a completely
+# different computation -- a rule over three sensors rather than a forest over
+# five. Prefixing every label makes it obvious at a glance which system
+# produced a verdict, so the two are never mistaken for one another.
+MODEL_LABEL_PREFIX = "Random Forest: "
+
+
 def predict_plant_health(sensor_data):
     input_data = pd.DataFrame([sensor_data])
     prediction = model.predict(input_data)[0]
-    return label_encoder.inverse_transform([prediction])[0]
+    label = label_encoder.inverse_transform([prediction])[0]
+    return f"{MODEL_LABEL_PREFIX}{label}"
 
 
 # Firebase
