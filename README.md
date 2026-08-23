@@ -135,6 +135,7 @@ upload to Firebase, steady orange means the sensors weren't found.
 
 | Symptom | Cause |
 |---|---|
+| First compile takes 25+ minutes | Normal — see [If compiling takes forever](#if-compiling-takes-forever) |
 | No `COM` port appears | Charge-only USB cable, or try the other socket |
 | `Secrets.h is missing` | You skipped step 1 |
 | Garbled text like `R~?gB??k??` | Serial Monitor isn't at **115200** |
@@ -244,3 +245,20 @@ there and wait.
 Firebase keeps that data, so the app has real readings to display even with the
 board switched off. The numbers just stop updating, frozen at the last reading
 sent.
+
+---
+
+### If compiling takes forever
+
+The first compile of `ArduinoPlantMonitor` on a machine takes **25–30 minutes**.
+That's expected, since the ESP32 core plus U8g2 comes to a lot of source
+files (a whole `#include` graph)
+
+**Just Let it finish.** Then the build cache will be written, later compiles will be much faster.
+
+| Cache miss scenarios | Reason |
+|---|---|
+| Changing anything in the Tools menu | Board settings are part of the cache identity |
+| Adding or removing an `#include` | The whole dependency scan re-runs |
+| Opening the sketch from a different path | The cache is keyed on the folder path *as text*, e.g.,  `D:\proj` and a symlink `D:\link` pointing at it count as two separate sketches |
+| Not compiling for 30+ days | The cache expires |
