@@ -13,6 +13,20 @@ Display display;
 // serial log can report the moment it flips instead of every poll.
 bool lastPumpTrigger = false;
 
+// Who last asked for water, so the log can say what is actually in charge.
+enum class WaterSource { NONE, REMOTE, FALLBACK };
+
+WaterSource lastWaterSource = WaterSource::NONE;
+unsigned long lastWaterMs = 0;
+
+// When the soil first dropped below MOISTURE_HEALTHY_MIN and stayed there.
+// 0 means "not currently dry". This is the clock the fallback runs on.
+unsigned long dryStartMs = 0;
+
+// When the board last saw someone else set the pump flag. Proof the backend
+// is alive; 0 means it has not been heard from since boot.
+unsigned long lastRemoteMs = 0;
+
 // Works out which face to show from the latest reading. This lives on the
 // board on purpose: the screen keeps telling the truth even with no WiFi and
 // no backend running.
@@ -41,6 +55,83 @@ const char* plantStateName(PlantState state) {
     }
 
     return "HIGH STRESS";
+}
+
+
+// millis() since a recorded moment, in whole seconds. Rollover-safe because
+// the subtraction is done in unsigned arithmetic.
+unsigned long secondsSince(unsigned long since) {
+    return (millis() - since) / 1000UL;
+}
+
+
+const char* waterSourceName(WaterSource source) {
+
+    if (source == WaterSource::REMOTE) {
+        return "backend";
+    }
+
+    if (source == WaterSource::FALLBACK) {
+        return "board fallback";
+    }
+
+    return "nothing yet";
+}
+
+
+// Runs the pump and blocks for the duration. Both the remote path and the
+// fallback path go through here so the logging and the dry-clock reset can
+// never drift apart.
+void runPump(int seconds, WaterSource source) {
+
+    Serial.printf("[pump] ON for %d s -- requested by %s\n",
+                  seconds, waterSourceName(source));
+
+    display.showPumping(seconds);
+
+    digitalWrite(RELAY_PUMP_PIN, HIGH);
+    delay(seconds * 1000UL);
+    digitalWrite(RELAY_PUMP_PIN, LOW);
+
+    display.clearOverride();
+    Serial.println("[pump] OFF");
+
+    lastWaterSource = source;
+    lastWaterMs = millis();
+
+    // Fresh water means the soil is no longer "continuously dry", so the
+    // fallback clock restarts. Without this the board would pour again on
+    // the very next pass while the reading catches up.
+    dryStartMs = 0;
+}
+
+
+// Tracks how long the soil has been below the threshold without a break.
+void updateDryClock(float moisture) {
+
+    if (moisture >= MOISTURE_HEALTHY_MIN) {
+        dryStartMs = 0;
+        return;
+    }
+
+    if (dryStartMs == 0) {
+        dryStartMs = millis();
+    }
+}
+
+
+// True once the soil has been dry longer than the backend had to react.
+bool fallbackDue() {
+
+    if (!FALLBACK_ENABLED) {
+        return false;
+    }
+
+    if (dryStartMs == 0) {
+        return false;
+    }
+
+    return (millis() - dryStartMs) >= FALLBACK_GRACE_MS;
 }
 
 
@@ -85,6 +176,37 @@ void logSensorReport(const SensorData& data, bool pumpTriggered, int pumpSeconds
         Serial.println("Pump        : not triggered");
     }
 
+
+    Serial.println("------------- CONTROL -------------");
+
+    if (!FALLBACK_ENABLED) {
+        Serial.println("Mode        : backend only (fallback disabled)");
+    }
+    else if (dryStartMs == 0) {
+        Serial.println("Mode        : backend (soil is wet, fallback idle)");
+    }
+    else {
+        Serial.printf("Mode        : backend, board fallback armed\n");
+        Serial.printf("Dry for     : %lu s of %lu s before the board acts\n",
+                      secondsSince(dryStartMs), FALLBACK_GRACE_MS / 1000UL);
+    }
+
+    if (lastRemoteMs == 0) {
+        Serial.println("Backend     : NOT SEEN since boot");
+    }
+    else {
+        Serial.printf("Backend     : last set the flag %lu s ago\n",
+                      secondsSince(lastRemoteMs));
+    }
+
+    if (lastWaterSource == WaterSource::NONE) {
+        Serial.println("Last water  : none since boot");
+    }
+    else {
+        Serial.printf("Last water  : %lu s ago, by %s\n",
+                      secondsSince(lastWaterMs),
+                      waterSourceName(lastWaterSource));
+    }
     Serial.println("-----------------------------------");
 }
 
@@ -148,24 +270,29 @@ void loop() {
     if (pumpTriggered != lastPumpTrigger) {
         Serial.print("[pump] trigger is now ");
         Serial.println(pumpTriggered ? "TRUE" : "false");
+
+        // A flag going true is the only evidence the board has that the
+        // backend (or a person) is out there and reacting.
+        if (pumpTriggered) {
+            lastRemoteMs = millis();
+        }
+
         lastPumpTrigger = pumpTriggered;
     }
 
     if (pumpTriggered) {
-        Serial.print("Pump ON for ");
-        Serial.print(pump_duration);
-        Serial.println(" seconds");
-        display.showPumping(pump_duration);
-
-        digitalWrite(RELAY_PUMP_PIN, HIGH);
-        delay(pump_duration * 1000UL);
-        digitalWrite(RELAY_PUMP_PIN, LOW);
-        Serial.println("Pump OFF");
-        display.clearOverride();
+        runPump(pump_duration, WaterSource::REMOTE);
         firebaseRequest(
         "PUT",
         "/pump/trigger.json",
         "false");
+    }
+    else if (fallbackDue()) {
+        // The backend had its window and did nothing. Water anyway.
+        Serial.printf(
+            "[fallback] dry for %lu s with no backend response -- watering\n",
+            secondsSince(dryStartMs));
+        runPump(FALLBACK_PUMP_SECONDS, WaterSource::FALLBACK);
     }
 
     digitalWrite(RELAY_LIGHT_PIN, HIGH);
@@ -192,6 +319,10 @@ void loop() {
         display.setPlantState(
             evaluatePlantState(data)
         );
+
+        // Must run before the report so the CONTROL section reflects this
+        // reading rather than the previous one.
+        updateDryClock(data.soilMoisture);
 
         logSensorReport(data, lastPumpTrigger, pump_duration);
 
