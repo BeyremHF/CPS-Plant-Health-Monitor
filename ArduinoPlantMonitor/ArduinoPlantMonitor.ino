@@ -9,6 +9,10 @@
 unsigned long lastSensorSend = 0;
 Display display;
 
+// What Firebase said about the pump on the most recent poll. Kept so the
+// serial log can report the moment it flips instead of every poll.
+bool lastPumpTrigger = false;
+
 // Works out which face to show from the latest reading. This lives on the
 // board on purpose: the screen keeps telling the truth even with no WiFi and
 // no backend running.
@@ -23,6 +27,65 @@ PlantState evaluatePlantState(const SensorData& data) {
     }
 
     return PlantState::HIGH_STRESSED;
+}
+
+
+const char* plantStateName(PlantState state) {
+
+    if (state == PlantState::HEALTHY) {
+        return "HEALTHY";
+    }
+
+    if (state == PlantState::MODERATE_STRESSED) {
+        return "MODERATE STRESS";
+    }
+
+    return "HIGH STRESS";
+}
+
+
+// One readable block per sensor cycle: what was measured, how it compares to
+// the thresholds in Config.h, and what the pump is actually doing.
+//
+// Note the watering line is a *prediction*, not a decision. This board never
+// decides to water -- the backend compares moisture against its own threshold
+// and sets the flag in Firebase. MOISTURE_HEALTHY_MIN here is the same 40.0
+// the backend uses, so the two should agree; if they disagree on screen, the
+// backend is either not running or working from a staler reading.
+void logSensorReport(const SensorData& data, bool pumpTriggered, int pumpSeconds) {
+
+    Serial.println();
+    Serial.println("------------- READING -------------");
+    Serial.printf("Temperature : %.1f C\n",   data.temperature);
+    Serial.printf("Humidity    : %.1f %%\n",  data.humidity);
+    Serial.printf("Pressure    : %.1f hPa\n", data.pressure);
+    Serial.printf("Light       : %.1f lx\n",  data.light);
+    Serial.printf("Soil        : %.1f %% (raw ADC %d)\n",
+                  data.soilMoisture, data.soilRaw);
+
+    Serial.println("------------- STATE ---------------");
+    Serial.printf("Thresholds  : healthy >= %.1f %%, moderate >= %.1f %%\n",
+                  MOISTURE_HEALTHY_MIN, MOISTURE_MODERATE_MIN);
+    Serial.printf("Plant state : %s\n",
+                  plantStateName(evaluatePlantState(data)));
+
+    if (data.soilMoisture < MOISTURE_HEALTHY_MIN) {
+        Serial.printf("Watering    : %.1f %% < %.1f %% -> NEEDS WATER\n",
+                      data.soilMoisture, MOISTURE_HEALTHY_MIN);
+    }
+    else {
+        Serial.printf("Watering    : %.1f %% >= %.1f %% -> not needed\n",
+                      data.soilMoisture, MOISTURE_HEALTHY_MIN);
+    }
+
+    if (pumpTriggered) {
+        Serial.printf("Pump        : TRIGGERED for %d s\n", pumpSeconds);
+    }
+    else {
+        Serial.println("Pump        : not triggered");
+    }
+
+    Serial.println("-----------------------------------");
 }
 
 void setup() {
@@ -67,7 +130,7 @@ void setup() {
 
 
 void loop() {
-    int pump_duration;
+    int pump_duration = 0;
 
     // WiFi
     if (!isWiFiConnected()) {
@@ -78,8 +141,17 @@ void loop() {
     }
 
 
-    // Pump
-    if (checkPump(pump_duration)) {
+    // Pump. Read once per pass and remembered, so the sensor report can show
+    // the flag even on passes where nothing fires.
+    bool pumpTriggered = checkPump(pump_duration);
+
+    if (pumpTriggered != lastPumpTrigger) {
+        Serial.print("[pump] trigger is now ");
+        Serial.println(pumpTriggered ? "TRUE" : "false");
+        lastPumpTrigger = pumpTriggered;
+    }
+
+    if (pumpTriggered) {
         Serial.print("Pump ON for ");
         Serial.print(pump_duration);
         Serial.println(" seconds");
@@ -120,6 +192,8 @@ void loop() {
         display.setPlantState(
             evaluatePlantState(data)
         );
+
+        logSensorReport(data, lastPumpTrigger, pump_duration);
 
         // Show what was just measured, then fall back to the face on its own.
         display.showSensors(data, SENSOR_SCREEN_MS);
