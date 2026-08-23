@@ -33,8 +33,9 @@
 // Plant state, from soil moisture (%)
 #define MOISTURE_HEALTHY_MIN  40.0   // below this counts as a stress factor
 #define MOISTURE_MODERATE_MIN 25.0   // below this is bad enough on its own
-#define TEMP_MIN              10.0   // degrees C
-#define TEMP_MAX              32.0
+// Basil base temp ~10.9-12.1 C, optimal MDT 32.6-35.5 C: doi.org/10.1371/journal.pone.0294905
+#define TEMP_MIN              12.0   // degrees C
+#define TEMP_MAX              35.0
 
 // Frontend/src/App.jsx raises a "light level is too low" notice below this. 
 // It does NOT feed the plant state above, and it is NOT the lamp's control threshold either

@@ -60,7 +60,7 @@ const DEFAULT_PLANT_SETTINGS = {
   dotColor:      null,
   // Mirrors ArduinoPlantMonitor/Config.h. Keep them aligned: the board
   // publishes its own verdict and these only drive the per-sensor alert list.
-  thresholds:    { moistureMin: 40, tempMin: 10, tempMax: 32, lightMin: 100 },
+  thresholds:    { moistureMin: 40, tempMin: 12, tempMax: 35, lightMin: 100 },
   waterDuration: 3,
   graphs:        { moisture: true, temperature: true, humidity: false, light: false, pressure: false, vpd: false },
   timeframe:     "24h",
