@@ -7,6 +7,41 @@
 #include <ArduinoJson.h>
 #include <time.h>
 
+const char* wifiStatusName(wl_status_t status) {
+
+    if (status == WL_CONNECTED) {
+        return "connected";
+    }
+
+    if (status == WL_NO_SSID_AVAIL) {
+        return "network not found -- wrong SSID, or it is 5 GHz "
+               "(this board is 2.4 GHz only)";
+    }
+
+    if (status == WL_CONNECT_FAILED) {
+        return "connection refused -- usually a wrong password";
+    }
+
+    if (status == WL_CONNECTION_LOST) {
+        return "connection lost";
+    }
+
+    if (status == WL_DISCONNECTED) {
+        return "not connected -- still trying to associate "
+               "(wrong password or the network is out of range)";
+    }
+
+    if (status == WL_IDLE_STATUS) {
+        return "idle, no attempt in progress yet";
+    }
+
+    if (status == WL_SCAN_COMPLETED) {
+        return "scan finished";
+    }
+
+    return "unknown status";
+}
+
 
 // WiFi
 void initWiFi() {
@@ -14,19 +49,28 @@ void initWiFi() {
     WiFi.mode(WIFI_STA);
     WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
 
-    Serial.print("Connecting to WiFi");
+    Serial.printf("Connecting to WiFi \"%s\"\n", WIFI_SSID);
+
+    unsigned long attemptStart = millis();
 
     while (WiFi.status() != WL_CONNECTED) {
         setLED(255, 0, 0);
         delay(500);
         setLED(0, 0, 0);
         delay(500);
-        Serial.print(".");
-        Serial.println(WiFi.status());
+
+        wl_status_t status = WiFi.status();
+
+        Serial.printf("[wifi] %lu s: %s (status %d)\n",
+                      (millis() - attemptStart) / 1000UL,
+                      wifiStatusName(status),
+                      (int)status);
     }
 
     Serial.println();
-    Serial.println("WiFi connected");
+    Serial.printf("WiFi connected -- IP %s, %d dBm\n",
+                  WiFi.localIP().toString().c_str(),
+                  WiFi.RSSI());
 
     setLED(0, 255, 0);
 
