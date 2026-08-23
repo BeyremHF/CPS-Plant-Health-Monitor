@@ -47,10 +47,20 @@ const PLANTS = [
   { id: "strawberry-1", defaultLabel: "Strawberry 1", dot: "pink"  },
 ];
 
+// Maps the board's published plant state onto a BMO expression. Slugs come
+// from plantStateSlug() in ArduinoPlantMonitor.ino.
+const BOARD_STATE_MOOD = {
+  healthy:         "happy",
+  moderate_stress: "neutral",
+  high_stress:     "sad",
+};
+
 const DEFAULT_PLANT_SETTINGS = {
   name:          null,
   dotColor:      null,
-  thresholds:    { moistureMin: 20, tempMin: 10, tempMax: 32, lightMin: 100 },
+  // Mirrors ArduinoPlantMonitor/Config.h. Keep them aligned: the board
+  // publishes its own verdict and these only drive the per-sensor alert list.
+  thresholds:    { moistureMin: 40, tempMin: 10, tempMax: 32, lightMin: 100 },
   waterDuration: 3,
   graphs:        { moisture: true, temperature: true, humidity: false, light: false, pressure: false, vpd: false },
   timeframe:     "24h",
@@ -325,7 +335,20 @@ export default function App() {
     getNotifications(sensors, ps.thresholds, reservoirEmpty),
     [sensors, ps.thresholds, reservoirEmpty]
   );
-  const mood = notifications.length === 0 ? "happy" : notifications.some(n=>n.type==="alert") ? "sad" : "neutral";
+
+  // The board publishes `state` alongside its readings, so the face here is the
+  // same verdict the OLED is showing rather than a second opinion derived from
+  // the same numbers. Falls back to the local alert rules when the field is
+  // absent -- older firmware, or a reading written before this existed.
+  const mood = useMemo(() => {
+    const fromBoard = BOARD_STATE_MOOD[sensors?.state];
+    if (fromBoard) return fromBoard;
+    if (notifications.length === 0) return "happy";
+    return notifications.some(n => n.type === "alert") ? "sad" : "neutral";
+  }, [sensors?.state, notifications]);
+
+  // One headline for every place that shows plant status.
+  const statusHeadline = mood === "happy" ? "Healthy" : "Needs attention";
 
   const triggerPump = async () => {
     moistureBefore.current = sensors?.soil_moisture ?? null;
@@ -344,7 +367,7 @@ export default function App() {
   const updated = lastUpdate ? "Updated " + timeAgo(lastUpdate) : "Waiting…";
 
   const shared = {
-    sensors, notifications, mood, memHistory, history, historyError,
+    sensors, notifications, mood, statusHeadline, memHistory, history, historyError,
     ps, updatePS, triggerPump, triggerLight,
     updated, activePlant, setActivePlant, activePlantLabel,
     theme, setTheme,
@@ -433,7 +456,7 @@ const GRAPH_DEFS = [
 ];
 
 function OverviewTab(p) {
-  const { sensors, notifications, mood, memHistory, ps, updatePS, triggerPump, triggerLight, updated, activePlantLabel, goToChart,
+  const { sensors, notifications, mood, statusHeadline, memHistory, ps, updatePS, triggerPump, triggerLight, updated, activePlantLabel, goToChart,
           plantStatus, plantStatusError, plantStatusLoading } = p;
   const activeGraphs = GRAPH_DEFS.filter(g => ps.graphs[g.key]);
   const gridCols = activeGraphs.map(()=>"1fr").join(" ");
@@ -461,8 +484,8 @@ function OverviewTab(p) {
           <div className="status-head">
             <div>
               <div className="status-label">Plant status</div>
-              <div className={"status-value"+(notifications.length?" warn":"")}>
-                {notifications.length===0 ? "Healthy" : "Needs attention"}
+              <div className={"status-value"+(mood!=="happy"?" warn":"")}>
+                {statusHeadline}
               </div>
             </div>
             <div className="status-updated">{updated}</div>
@@ -479,7 +502,7 @@ function OverviewTab(p) {
 
         <div className="card bmo-card" style={bmoMaxH ? { maxHeight: bmoMaxH, overflow:'hidden' } : {}}>
           <BMO mood={mood}/>
-          <div className={"bmo-status"+(notifications.length?" warn":"")}>
+          <div className={"bmo-status"+(mood!=="happy"?" warn":"")}>
             {mood==="happy" ? "Thriving" : "Needs attention"}
           </div>
           <div className="bmo-alerts">
@@ -858,7 +881,7 @@ function SettingSlider({ icon, label, suffix, min, max, step, value, onChange })
    Mobile shell
    ══════════════════════════════════════════════════════════════ */
 function MobileShell(p) {
-  const { sensors, notifications, mood, memHistory, ps, triggerPump, triggerLight, updated, activePlantLabel, theme, setTheme, goToChart,
+  const { sensors, notifications, mood, statusHeadline, memHistory, ps, triggerPump, triggerLight, updated, activePlantLabel, theme, setTheme, goToChart,
           plantStatus, plantStatusError, plantStatusLoading } = p;
   const [tab, setTab] = useState("overview");
   const activeGraphs = GRAPH_DEFS.filter(g => ps.graphs[g.key]);
@@ -882,7 +905,7 @@ function MobileShell(p) {
             <div className="card mobile-status-card">
               <BMO mood={mood}/>
               <div className="mobile-status-text">
-                <div className={"status-value"+(notifications.length?" warn":"")}>{notifications.length===0?"Healthy":"Needs attention"}</div>
+                <div className={"status-value"+(mood!=="happy"?" warn":"")}>{statusHeadline}</div>
                 {notifications.length===0
                   ? <div className="status-updated">All readings normal</div>
                   : notifications.map(n=>(

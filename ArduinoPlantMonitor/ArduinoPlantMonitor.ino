@@ -30,17 +30,64 @@ unsigned long lastRemoteMs = 0;
 // Works out which face to show from the latest reading. This lives on the
 // board on purpose: the screen keeps telling the truth even with no WiFi and
 // no backend running.
+// Counts how many of the plant's needs are currently unmet. Exposed so the
+// serial report can show which ones, rather than just the verdict.
+int countStressFactors(const SensorData& data) {
+
+    int factors = 0;
+
+    if (data.soilMoisture < MOISTURE_HEALTHY_MIN) {
+        factors++;
+    }
+
+    if (data.temperature < TEMP_MIN || data.temperature > TEMP_MAX) {
+        factors++;
+    }
+
+    if (data.light < LIGHT_MIN) {
+        factors++;
+    }
+
+    return factors;
+}
+
+
 PlantState evaluatePlantState(const SensorData& data) {
 
-    if (data.soilMoisture >= MOISTURE_HEALTHY_MIN) {
+    // Severe dryness outranks everything else. A plant this dry is in trouble
+    // regardless of how good the light and temperature are.
+    if (data.soilMoisture < MOISTURE_MODERATE_MIN) {
+        return PlantState::HIGH_STRESSED;
+    }
+
+    int factors = countStressFactors(data);
+
+    if (factors == 0) {
         return PlantState::HEALTHY;
     }
 
-    if (data.soilMoisture >= MOISTURE_MODERATE_MIN) {
+    if (factors == 1) {
         return PlantState::MODERATE_STRESSED;
     }
 
     return PlantState::HIGH_STRESSED;
+}
+
+
+// Machine-readable form, published to Firebase so the web dashboard can render
+// the same verdict. Kept separate from plantStateName() because that one is
+// for humans reading the serial log and may be reworded freely.
+const char* plantStateSlug(PlantState state) {
+
+    if (state == PlantState::HEALTHY) {
+        return "healthy";
+    }
+
+    if (state == PlantState::MODERATE_STRESSED) {
+        return "moderate_stress";
+    }
+
+    return "high_stress";
 }
 
 
@@ -160,8 +207,22 @@ void logSensorReport(const SensorData& data, bool pumpTriggered, int pumpSeconds
                   MOISTURE_HEALTHY_MIN, MOISTURE_MODERATE_MIN);
     Serial.printf("Water below : %.1f %% (shared with the backend)\n",
                   WATERING_THRESHOLD);
-    Serial.printf("Plant state : %s\n",
-                  plantStateName(evaluatePlantState(data)));
+    Serial.printf("Plant state : %s (%d stress factor(s))\n",
+                  plantStateName(evaluatePlantState(data)),
+                  countStressFactors(data));
+    Serial.printf("  moisture  : %.1f %% %s (need >= %.1f)\n",
+                  data.soilMoisture,
+                  data.soilMoisture < MOISTURE_HEALTHY_MIN ? "STRESS" : "ok",
+                  MOISTURE_HEALTHY_MIN);
+    Serial.printf("  temp      : %.1f C %s (need %.1f-%.1f)\n",
+                  data.temperature,
+                  (data.temperature < TEMP_MIN || data.temperature > TEMP_MAX)
+                      ? "STRESS" : "ok",
+                  TEMP_MIN, TEMP_MAX);
+    Serial.printf("  light     : %.1f lx %s (need >= %.1f)\n",
+                  data.light,
+                  data.light < LIGHT_MIN ? "STRESS" : "ok",
+                  LIGHT_MIN);
 
     if (data.soilMoisture < WATERING_THRESHOLD) {
         Serial.printf("Watering    : %.1f %% < %.1f %% -> NEEDS WATER\n",
@@ -318,10 +379,11 @@ void loop() {
         SensorData data =
             readSensors();
 
-        // The face follows the newest reading.
-        display.setPlantState(
-            evaluatePlantState(data)
-        );
+        // The face follows the newest reading, and the same verdict is what
+        // gets published, so the OLED and the dashboard cannot disagree.
+        PlantState state = evaluatePlantState(data);
+
+        display.setPlantState(state);
 
         // Must run before the report so the CONTROL section reflects this
         // reading rather than the previous one.
@@ -334,7 +396,7 @@ void loop() {
 
         // Blue LED while sending
         setLED(0, 0, 255);
-        sendSensorData(data);
+        sendSensorData(data, plantStateSlug(state));
         setLED(0, 0, 0);
         lastSensorSend = millis();
     }

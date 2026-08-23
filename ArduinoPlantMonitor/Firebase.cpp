@@ -114,7 +114,8 @@ bool checkPump(int &duration) {
 
 // Send sensors
 void sendSensorData(
-    const SensorData& data
+    const SensorData& data,
+    const char* state
 ) {
 
     JsonDocument doc;
@@ -135,6 +136,8 @@ void sendSensorData(
         round(data.soilMoisture * 10) / 10.0;
 
     doc["soil_raw"] = data.soilRaw;
+
+    doc["state"] = state;
 
     time_t now;
 

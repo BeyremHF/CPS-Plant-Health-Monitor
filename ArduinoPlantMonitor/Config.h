@@ -32,10 +32,16 @@
 #define SOIL_DRY 2650
 #define SOIL_WET 950
 
-// Plant state, from soil moisture (%). These pick which face the OLED shows
-// and nothing else.
-#define MOISTURE_HEALTHY_MIN 40.0
-#define MOISTURE_MODERATE_MIN 25.0
+// Plant state. This is the ONE definition of "how is the plant doing" for the
+// whole system: it picks the OLED face, and the board publishes the result to
+// Firebase so the web dashboard renders the same verdict instead of computing
+// a second opinion of its own. The frontend's alert thresholds in
+// Frontend/src/App.jsx mirror these values.
+#define MOISTURE_HEALTHY_MIN  40.0   // below this counts as a stress factor
+#define MOISTURE_MODERATE_MIN 25.0   // below this is bad enough on its own
+#define TEMP_MIN              10.0   // degrees C
+#define TEMP_MAX              32.0
+#define LIGHT_MIN            100.0   // lux
 
 // Watering. THIS FILE IS THE SINGLE SOURCE OF TRUTH for both numbers --
 // Backend/main.py parses them out of here at startup, so editing them here
