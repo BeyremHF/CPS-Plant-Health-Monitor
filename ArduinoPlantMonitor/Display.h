@@ -52,6 +52,7 @@ public:
     void showSensors(
         const SensorData& data,
         float effectiveLux,
+        unsigned long ambientAt,
         unsigned long holdMs = 4000
     );
     void clearOverride();
@@ -66,6 +67,11 @@ private:
 
     SensorData lastData;
     float lastEffectiveLux;
+
+    // millis() at the ambient reading in lastData, so the sensors screen can
+    // say how stale it is. Ambient is carried forward for up to
+    // LIGHT_AMBIENT_MS, so it is usually older than the rest of the row.
+    unsigned long lastAmbientAt;
     int pumpDuration;
 
     void drawCentered(const char* text, int y);

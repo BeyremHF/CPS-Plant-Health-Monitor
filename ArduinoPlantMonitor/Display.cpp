@@ -40,6 +40,7 @@ Display::Display()
       activeScreen(DisplayScreen::FACE),
       overrideUntil(0),
       lastEffectiveLux(0),
+      lastAmbientAt(0),
       pumpDuration(0)
 {
     lastData = SensorData();
@@ -112,14 +113,10 @@ void Display::drawAnimation(
 ) {
     u8g2.setBitmapMode(1);
 
-    // Frame index comes from millis(), so the animation plays itself with no
-    // state to keep in sync -- the more often this is drawn, the smoother it
-    // looks.
     int frame =
         (millis() / intervalMs) % frameCount;
 
-    // The frames are XBM (least significant bit first), so drawXBMP is the
-    // matching call.
+    // The frames are XBM (least significant bit first), so drawXBMP is the correct one
     u8g2.drawXBMP(
         0,
         0,
@@ -181,10 +178,31 @@ void Display::drawPumpingScreen(int duration) {
     drawCentered(buffer, 58);
 }
 
-// Five rows on a 64 px screen. The 5x7 font is 7 px tall, so 9 px spacing
-// leaves a pixel of air between rows and still finishes at y=56, clear of the
-// bottom edge at 63. The labels are all padded to ten characters so the values
-// line up in one column.
+// How long ago a reading was taken, short enough to be at the end of a row: "8s", "4m", "2h"
+static void formatAge(unsigned long sinceMs, char* out, size_t size) {
+
+    if (sinceMs == 0) {
+        snprintf(out, size, "--");
+        return;
+    }
+
+    unsigned long seconds = (millis() - sinceMs) / 1000UL;
+
+    if (seconds < 60) {
+        snprintf(out, size, "%lus", seconds);
+        return;
+    }
+
+    if (seconds < 3600) {
+        snprintf(out, size, "%lum", seconds / 60UL);
+        return;
+    }
+
+    snprintf(out, size, "%luh", seconds / 3600UL);
+}
+
+
+// Five rows on a 64 px screen
 void Display::drawSensorsScreen(const SensorData& data, float effectiveLux) {
 
     u8g2.setFontMode(1);
@@ -222,11 +240,14 @@ void Display::drawSensorsScreen(const SensorData& data, float effectiveLux) {
     u8g2.drawStr(5, 38, buffer);
 
     // The room on its own -- the lamp is switched off while this is measured.
+    char age[8];
+    formatAge(lastAmbientAt, age, sizeof(age));
     snprintf(
         buffer,
         sizeof(buffer),
-        "Ambient:  %.0f lx",
-        data.light
+        "Ambient:  %.0f lx (%s)",
+        data.light,
+        age
     );
     u8g2.drawStr(5, 47, buffer);
 
@@ -263,12 +284,14 @@ void Display::showPumping(int duration) {
 void Display::showSensors(
     const SensorData& data,
     float effectiveLux,
+    unsigned long ambientAt,
     unsigned long holdMs
 ) {
     activeScreen = DisplayScreen::SENSORS;
     overrideUntil = millis() + holdMs;
     lastData = data;
     lastEffectiveLux = effectiveLux;
+    lastAmbientAt = ambientAt;
     render();
 }
 

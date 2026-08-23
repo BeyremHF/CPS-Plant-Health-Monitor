@@ -657,7 +657,7 @@ void loop() {
         logSensorReport(data, lastPumpTrigger, pump_duration);
 
         // Show what was just measured, then fall back to the face on its own.
-        display.showSensors(data, lastEffectiveLux, SENSOR_SCREEN_MS);
+        display.showSensors(data, lastEffectiveLux, lastAmbientMs, SENSOR_SCREEN_MS);
 
         // Blue LED while sending
         setLED(0, 0, 255);
