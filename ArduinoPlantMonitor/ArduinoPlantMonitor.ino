@@ -27,6 +27,9 @@ unsigned long dryStartMs = 0;
 // is alive; 0 means it has not been heard from since boot.
 unsigned long lastRemoteMs = 0;
 
+// False until this session has actually measured the soil.
+bool haveReading = false;
+
 // Works out which face to show from the latest reading.
 //
 // Counts how many of the plant's needs are currently unmet. Exposed so the
@@ -600,6 +603,16 @@ void loop() {
     // the flag even on passes where nothing fires.
     bool pumpTriggered = checkPump(pump_duration);
 
+    // A trigger raised before this session's first reading predates the soil
+    // data behind it. Drop it; the backend re-raises it if still dry.
+    if (pumpTriggered && !haveReading) {
+        firebaseRequest(
+        "PUT",
+        "/pump/trigger.json",
+        "false");
+        pumpTriggered = false;
+    }
+
     if (pumpTriggered != lastPumpTrigger) {
         Serial.print("[pump] trigger is now ");
         Serial.println(pumpTriggered ? "TRUE" : "false");
@@ -614,11 +627,12 @@ void loop() {
     }
 
     if (pumpTriggered) {
-        runPump(pump_duration, WaterSource::REMOTE);
+        // Cleared first, so a reset mid-pump cannot replay it on the next boot.
         firebaseRequest(
         "PUT",
         "/pump/trigger.json",
         "false");
+        runPump(pump_duration, WaterSource::REMOTE);
     }
     else if (fallbackDue()) {
         // The backend had its window and did nothing. Water anyway.
@@ -653,6 +667,7 @@ void loop() {
 
         // Must run before the report
         updateDryClock(data.soilMoisture);
+        haveReading = true;
 
         logSensorReport(data, lastPumpTrigger, pump_duration);
 
