@@ -19,7 +19,7 @@ enum class WaterSource { NONE, REMOTE, FALLBACK };
 WaterSource lastWaterSource = WaterSource::NONE;
 unsigned long lastWaterMs = 0;
 
-// When the soil first dropped below MOISTURE_HEALTHY_MIN and stayed there.
+// When the soil first dropped below WATERING_THRESHOLD and stayed there.
 // 0 means "not currently dry". This is the clock the fallback runs on.
 unsigned long dryStartMs = 0;
 
@@ -109,7 +109,7 @@ void runPump(int seconds, WaterSource source) {
 // Tracks how long the soil has been below the threshold without a break.
 void updateDryClock(float moisture) {
 
-    if (moisture >= MOISTURE_HEALTHY_MIN) {
+    if (moisture >= WATERING_THRESHOLD) {
         dryStartMs = 0;
         return;
     }
@@ -140,9 +140,10 @@ bool fallbackDue() {
 //
 // Note the watering line is a *prediction*, not a decision. This board never
 // decides to water -- the backend compares moisture against its own threshold
-// and sets the flag in Firebase. MOISTURE_HEALTHY_MIN here is the same 40.0
-// the backend uses, so the two should agree; if they disagree on screen, the
-// backend is either not running or working from a staler reading.
+// and sets the flag in Firebase. The backend parses WATERING_THRESHOLD out of
+// Config.h, so the two cannot disagree on the number; if the verdict and the
+// pump disagree, the backend is either not running or working from a staler
+// reading.
 void logSensorReport(const SensorData& data, bool pumpTriggered, int pumpSeconds) {
 
     Serial.println();
@@ -155,18 +156,20 @@ void logSensorReport(const SensorData& data, bool pumpTriggered, int pumpSeconds
                   data.soilMoisture, data.soilRaw);
 
     Serial.println("------------- STATE ---------------");
-    Serial.printf("Thresholds  : healthy >= %.1f %%, moderate >= %.1f %%\n",
+    Serial.printf("Face        : healthy >= %.1f %%, moderate >= %.1f %%\n",
                   MOISTURE_HEALTHY_MIN, MOISTURE_MODERATE_MIN);
+    Serial.printf("Water below : %.1f %% (shared with the backend)\n",
+                  WATERING_THRESHOLD);
     Serial.printf("Plant state : %s\n",
                   plantStateName(evaluatePlantState(data)));
 
-    if (data.soilMoisture < MOISTURE_HEALTHY_MIN) {
+    if (data.soilMoisture < WATERING_THRESHOLD) {
         Serial.printf("Watering    : %.1f %% < %.1f %% -> NEEDS WATER\n",
-                      data.soilMoisture, MOISTURE_HEALTHY_MIN);
+                      data.soilMoisture, WATERING_THRESHOLD);
     }
     else {
         Serial.printf("Watering    : %.1f %% >= %.1f %% -> not needed\n",
-                      data.soilMoisture, MOISTURE_HEALTHY_MIN);
+                      data.soilMoisture, WATERING_THRESHOLD);
     }
 
     if (pumpTriggered) {
@@ -292,7 +295,7 @@ void loop() {
         Serial.printf(
             "[fallback] dry for %lu s with no backend response -- watering\n",
             secondsSince(dryStartMs));
-        runPump(FALLBACK_PUMP_SECONDS, WaterSource::FALLBACK);
+        runPump(WATERING_PUMP_SECONDS, WaterSource::FALLBACK);
     }
 
     digitalWrite(RELAY_LIGHT_PIN, HIGH);

@@ -7,6 +7,9 @@ import requests
 import os
 import threading
 import time
+import re
+import sys
+import pathlib
 
 
 #
@@ -19,8 +22,88 @@ FIREBASE_URL = (
 MODEL_PATH = "Model/plant_health_rf_model.pkl"
 ENCODER_PATH = "Model/label_encoder.pkl"
 
-SOIL_MOISTURE_THRESHOLD = 40.0
-PUMP_DURATION = 2
+# Watering settings are NOT defined here. ArduinoPlantMonitor/Config.h is the
+# single source of truth and this file parses them out of it, so the firmware
+# and the backend can never disagree about when to water or for how long.
+CONFIG_H = (
+    pathlib.Path(__file__).resolve().parent.parent
+    / "ArduinoPlantMonitor"
+    / "Config.h"
+)
+
+# Set to False by read_firmware_define() if anything went wrong, so the warning
+# can be repeated later instead of scrolling away behind uvicorn's banner.
+firmware_config_ok = True
+
+
+def loud_warning(*lines):
+    """Print an unmissable banner to stderr.
+
+    A silently wrong watering threshold either floods a plant or lets it dry
+    out, and neither shows up until damage is done -- so this is deliberately
+    hard to scroll past.
+    """
+    bar = "!" * 74
+    print("", file=sys.stderr)
+    print(bar, file=sys.stderr)
+    print("!!" + " FIRMWARE CONFIG NOT LOADED ".center(70, " ") + "!!", file=sys.stderr)
+    print(bar, file=sys.stderr)
+    for line in lines:
+        print("!! " + line.ljust(69) + "!!", file=sys.stderr)
+    print(bar, file=sys.stderr)
+    print("", file=sys.stderr)
+    sys.stderr.flush()
+
+
+def read_firmware_define(name, default):
+    """Read a #define out of the firmware's Config.h.
+
+    Falls back to `default` and shouts about it, rather than raising: a backend
+    that refuses to boot is worse than one that waters on a stale number and
+    says so every 30 seconds.
+    """
+    global firmware_config_ok
+
+    try:
+        text = CONFIG_H.read_text(encoding="utf-8")
+    except OSError as exc:
+        firmware_config_ok = False
+        loud_warning(
+            f"Could not read {CONFIG_H}",
+            f"  {exc}",
+            "",
+            f"FALLING BACK TO {name} = {default}",
+            "This value is a GUESS. If the firmware uses a different one, the",
+            "board's serial log and this backend will disagree about watering.",
+            "Fix: run the backend from a full checkout of the repo.",
+        )
+        return default
+
+    match = re.search(
+        rf"^\s*#define\s+{re.escape(name)}\s+([0-9]+(?:\.[0-9]+)?)",
+        text,
+        re.MULTILINE,
+    )
+
+    if not match:
+        firmware_config_ok = False
+        loud_warning(
+            f"'{name}' was not found in {CONFIG_H.name}",
+            "",
+            f"FALLING BACK TO {name} = {default}",
+            "Either the #define was renamed or removed, or its formatting",
+            "changed enough that the parser no longer matches it.",
+            "Fix: check the define still reads '#define NAME <number>'.",
+        )
+        return default
+
+    value = float(match.group(1))
+    print(f"[config] {name} = {value} (from {CONFIG_H.name})")
+    return value
+
+
+SOIL_MOISTURE_THRESHOLD = read_firmware_define("WATERING_THRESHOLD", 40.0)
+PUMP_DURATION = int(read_firmware_define("WATERING_PUMP_SECONDS", 2))
 UPDATE_INTERVAL_SECONDS = 30
 MIN_PUMP_DURATION = 1
 MAX_PUMP_DURATION = 30
@@ -200,6 +283,14 @@ def activate_pump(pump_request: PumpRequest = PumpRequest()):
 def automatic_watering_loop():
     while True:
         try:
+            if not firmware_config_ok:
+                print(
+                    "!! WATERING ON GUESSED CONFIG -- "
+                    f"threshold {SOIL_MOISTURE_THRESHOLD}% / "
+                    f"{PUMP_DURATION}s were NOT read from Config.h",
+                    file=sys.stderr,
+                )
+
             firebase_data = read_firebase()
             sensor_data = firebase_to_model_input(firebase_data)
             moisture = sensor_data["Soil_Moisture"]
@@ -228,3 +319,21 @@ def start_background_tasks():
     )
     thread.start()
     print("Automatic watering started.")
+
+    if firmware_config_ok:
+        print(
+            f"[config] watering below {SOIL_MOISTURE_THRESHOLD}% "
+            f"for {PUMP_DURATION}s, in sync with the firmware"
+        )
+    else:
+        # Repeated here on purpose: the import-time banner has by now scrolled
+        # away behind uvicorn's startup output.
+        loud_warning(
+            "The backend is running on FALLBACK watering values.",
+            "",
+            f"threshold = {SOIL_MOISTURE_THRESHOLD}%   duration = {PUMP_DURATION}s",
+            "",
+            "These were NOT read from ArduinoPlantMonitor/Config.h, so they",
+            "may not match what the board is actually doing. See the earlier",
+            "banner for the cause.",
+        )
