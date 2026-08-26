@@ -576,19 +576,6 @@ function OverviewTab(p) {
 
         <div className="card bmo-card bmo-card--controls">
           <BMO mood={mood}/>
-          <div className={"bmo-status"+(mood!=="happy"?" warn":"")}>
-            {mood==="happy" ? "Thriving" : "Needs attention"}
-          </div>
-          <div className="bmo-alerts">
-            {notifications.length===0
-              ? <div className="bmo-sub">No issues detected</div>
-              : notifications.map(n => (
-                <span key={n.id} className={"bmo-alert bmo-alert--"+n.type}>
-                  {I[n.icon]}{n.msg}
-                </span>
-              ))
-            }
-          </div>
           <div className="bmo-actions">
             <button className="btn-water" onClick={triggerPump}>{I.drop} Water now</button>
           </div>
