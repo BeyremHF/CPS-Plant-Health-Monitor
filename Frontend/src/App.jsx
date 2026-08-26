@@ -47,8 +47,7 @@ const PLANTS = [
   { id: "strawberry-1", defaultLabel: "Strawberry 1", dot: "pink"  },
 ];
 
-// Maps the model's verdict onto a BMO expression. Labels come from the
-// random forest in Backend/main.py, and are the only health verdict here.
+// Maps the model's verdict onto a BMO expression. Labels come from the random forest in Backend/main.py
 const HEALTH_MOOD = {
   "Healthy":         "happy",
   "Moderate Stress": "neutral",
