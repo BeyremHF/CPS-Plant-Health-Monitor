@@ -31,15 +31,14 @@
 #define SOIL_DRY 2650
 #define SOIL_WET 950
 
-// Plant state, from soil moisture (%)
-#define MOISTURE_HEALTHY_MIN  40.0   // below this counts as a stress factor
-#define MOISTURE_MODERATE_MIN 25.0   // below this is bad enough on its own
+// Comfortable ranges. The firmware does not act on these: they are here so
+// Frontend/src/App.jsx has one place to mirror for its per-sensor notices.
+// The plant's health verdict comes from the model in Backend/main.py.
+#define MOISTURE_HEALTHY_MIN  40.0   // %
 // Basil base temp ~10.9-12.1 C, optimal MDT 32.6-35.5 C: doi.org/10.1371/journal.pone.0294905
 #define TEMP_MIN              12.0   // degrees C
 #define TEMP_MAX              35.0
-
-// Frontend/src/App.jsx raises a "light level is too low" notice below this. 
-// It does NOT feed the plant state above, and it is NOT the lamp's control threshold either
+// Not the lamp's control threshold either
 #define LIGHT_MIN            100.0   // lux
 
 // Watering. THIS FILE IS THE SINGLE SOURCE OF TRUTH:

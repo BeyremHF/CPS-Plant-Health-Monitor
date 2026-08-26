@@ -30,64 +30,22 @@ unsigned long lastRemoteMs = 0;
 // False until this session has actually measured the soil.
 bool haveReading = false;
 
-// Works out which face to show from the latest reading.
-//
-// Counts how many of the plant's needs are currently unmet. Exposed so the
-// serial report can show which ones, rather than just the verdict.
-//
-// Water and temperature only
-int countStressFactors(const SensorData& data) {
-
-    int factors = 0;
-
-    if (data.soilMoisture < MOISTURE_HEALTHY_MIN) {
-        factors++;
-    }
-
-    if (data.temperature < TEMP_MIN || data.temperature > TEMP_MAX) {
-        factors++;
-    }
-
-    return factors;
-}
+// The verdict the backend's model last published, as a slug. Empty until the
+// backend has been heard from; the board does not judge the plant itself.
+String healthSlug = "";
 
 
-PlantState evaluatePlantState(const SensorData& data) {
+PlantState plantStateFromSlug(const String& slug) {
 
-    // Severe dryness outranks everything else. A plant this dry is in trouble
-    // regardless of how good the light and temperature are.
-    if (data.soilMoisture < MOISTURE_MODERATE_MIN) {
-        return PlantState::HIGH_STRESSED;
-    }
-
-    int factors = countStressFactors(data);
-
-    if (factors == 0) {
-        return PlantState::HEALTHY;
-    }
-
-    if (factors == 1) {
+    if (slug == "moderate_stress") {
         return PlantState::MODERATE_STRESSED;
     }
 
-    return PlantState::HIGH_STRESSED;
-}
-
-
-// Machine-readable form, published to Firebase so the web dashboard can render the same
-// This is kept separate from plantStateName() because that one is for humans to read the
-// serial log and that may be reworded
-const char* plantStateSlug(PlantState state) {
-
-    if (state == PlantState::HEALTHY) {
-        return "healthy";
+    if (slug == "high_stress") {
+        return PlantState::HIGH_STRESSED;
     }
 
-    if (state == PlantState::MODERATE_STRESSED) {
-        return "moderate_stress";
-    }
-
-    return "high_stress";
+    return PlantState::HEALTHY;
 }
 
 
@@ -317,6 +275,26 @@ void updateLightVeto(float ambientLux) {
 }
 
 
+// The face follows the backend's verdict. A failed read leaves the last one up
+// rather than reverting to a happy face the model never asked for.
+void pollHealth() {
+
+    String slug = checkHealthState();
+
+    if (slug == "" || slug == healthSlug) {
+        return;
+    }
+
+    healthSlug = slug;
+
+    PlantState state = plantStateFromSlug(slug);
+
+    display.setPlantState(state);
+
+    Serial.printf("[health] %s\n", plantStateName(state));
+}
+
+
 void pollLightMode() {
 
     String mode = checkLightMode();
@@ -542,7 +520,9 @@ void logSensorReport(const SensorData& data, bool pumpTriggered, int pumpSeconds
 
     Serial.println("-----------------------------------");
     Serial.printf("State       : %s\n",
-                  plantStateName(evaluatePlantState(data)));
+                  healthSlug == ""
+                      ? "waiting for the backend"
+                      : plantStateName(plantStateFromSlug(healthSlug)));
     Serial.printf("Lamp        : %s\n",
                   lightSummary().c_str());
     Serial.println("-----------------------------------");
@@ -664,11 +644,6 @@ void loop() {
 
         updateLightVeto(data.light);
 
-        // The face follows the newest reading
-        PlantState state = evaluatePlantState(data);
-
-        display.setPlantState(state);
-
         // Must run before the report
         updateDryClock(data.soilMoisture);
         haveReading = true;
@@ -680,10 +655,13 @@ void loop() {
 
         // Blue LED while sending
         setLED(0, 0, 255);
-        sendSensorData(data, plantStateSlug(state), lightIsOn, lastEffectiveLux);
+        sendSensorData(data, healthSlug.c_str(), lightIsOn, lastEffectiveLux);
         setLED(0, 0, 0);
         lastSensorSend = millis();
     }
+
+    // Health
+    pollHealth();
 
     // Light
     pollLightMode();

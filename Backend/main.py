@@ -153,15 +153,18 @@ model = joblib.load(MODEL_PATH)
 label_encoder = joblib.load(ENCODER_PATH)
 
 
-# Avoid confusion with the model's class names ("Healthy", "Moderate Stress", "High Stress")
-MODEL_LABEL_PREFIX = "Random Forest: "
+# The model's class names, mapped to the slugs the board and the dashboard use.
+HEALTH_SLUGS = {
+    "Healthy": "healthy",
+    "Moderate Stress": "moderate_stress",
+    "High Stress": "high_stress",
+}
 
 
 def predict_plant_health(sensor_data):
     input_data = pd.DataFrame([sensor_data])
     prediction = model.predict(input_data)[0]
-    label = label_encoder.inverse_transform([prediction])[0]
-    return f"{MODEL_LABEL_PREFIX}{label}"
+    return label_encoder.inverse_transform([prediction])[0]
 
 
 # Firebase
@@ -186,6 +189,24 @@ def set_pump_trigger(duration):
     )
 
     response.raise_for_status()
+
+
+# The board has no model of its own, so it reads this to pick the face it shows.
+def publish_health(label):
+    slug = HEALTH_SLUGS.get(label)
+
+    if slug is None:
+        print(f"Unknown model label {label!r} -- not published")
+        return
+
+    response = requests.put(
+        f"{FIREBASE_URL}/health/state.json",
+        json=slug,
+        timeout=5
+    )
+
+    response.raise_for_status()
+
 
 # Firebase -> Model Data
 def firebase_to_model_input(firebase_data):
@@ -315,6 +336,8 @@ def automatic_watering_loop():
 
             firebase_data = read_firebase()
             sensor_data = firebase_to_model_input(firebase_data)
+            publish_health(predict_plant_health(sensor_data))
+
             moisture = sensor_data["Soil_Moisture"]
             pump = firebase_data.get("pump", {})
             pump_trigger = pump.get("trigger", False)

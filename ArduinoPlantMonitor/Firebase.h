@@ -23,6 +23,8 @@ void sendSensorData(
     float effectiveLux
 );
 
+String checkHealthState();
+
 String checkLightMode();
 
 void sendLightMode(const char* mode);

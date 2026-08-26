@@ -155,6 +155,44 @@ bool checkPump(int &duration) {
     return false;
 }
 
+// Health
+//
+// The verdict the model in Backend/main.py published. Any failure returns "",
+// which the caller reads as "nothing new" and keeps whatever it had.
+String checkHealthState() {
+
+    String response = firebaseRequest("GET", "/health/state.json");
+
+    if (response == "") {
+        return "";
+    }
+
+    JsonDocument doc;
+
+    DeserializationError error = deserializeJson(doc, response);
+
+    if (error) {
+        Serial.print("Health JSON error: ");
+        Serial.println(error.c_str());
+        return "";
+    }
+
+    const char* slug = doc.as<const char*>();
+
+    if (slug == nullptr) {
+        return "";
+    }
+
+    String value(slug);
+
+    if (value == "healthy" || value == "moderate_stress" || value == "high_stress") {
+        return value;
+    }
+
+    return "";
+}
+
+
 // Light
 //
 // Any failure here returns "auto"
@@ -241,7 +279,10 @@ void sendSensorData(
 
     doc["water_tank_empty"] = data.waterTankEmpty;
     
-    doc["state"] = state;
+    // Absent until the backend has been heard from, rather than a guess.
+    if (state != nullptr && state[0] != '\0') {
+        doc["state"] = state;
+    }
 
     doc["light_effective"] =
         round(effectiveLux * 10) / 10.0;
