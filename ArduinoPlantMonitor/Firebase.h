@@ -18,10 +18,11 @@ bool checkPump(int &duration);
 
 void sendSensorData(
     const SensorData& data,
-    const char* state,
     bool lampOn,
     float effectiveLux
 );
+
+String checkHealthState();
 
 String checkLightMode();
 

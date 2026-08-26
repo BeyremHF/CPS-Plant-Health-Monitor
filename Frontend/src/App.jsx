@@ -47,19 +47,18 @@ const PLANTS = [
   { id: "strawberry-1", defaultLabel: "Strawberry 1", dot: "pink"  },
 ];
 
-// Maps the board's published plant state onto a BMO expression. Slugs come
-// from plantStateSlug() in ArduinoPlantMonitor.ino.
-const BOARD_STATE_MOOD = {
-  healthy:         "happy",
-  moderate_stress: "neutral",
-  high_stress:     "sad",
+// Maps the model's verdict onto a BMO expression. Labels come from the random forest in Backend/main.py
+const HEALTH_MOOD = {
+  "Healthy":         "happy",
+  "Moderate Stress": "neutral",
+  "High Stress":     "sad",
 };
 
 const DEFAULT_PLANT_SETTINGS = {
   name:          null,
   dotColor:      null,
-  // Mirrors ArduinoPlantMonitor/Config.h. Keep them aligned: the board
-  // publishes its own verdict and these only drive the per-sensor alert list.
+  // Mirrors ArduinoPlantMonitor/Config.h. Keep them aligned: these only drive
+  // the per-sensor alert list, never the health verdict.
   thresholds:    { moistureMin: 40, tempMin: 12, tempMax: 35, lightMin: 100 },
   waterDuration: 3,
   graphs:        { moisture: true, temperature: true, humidity: false, light: false, pressure: false, vpd: false },
@@ -420,19 +419,16 @@ export default function App() {
     [sensors, ps.thresholds, reservoirEmpty]
   );
 
-  // The board publishes `state` alongside its readings, so the face here is the
-  // same verdict the OLED is showing rather than a second opinion derived from
-  // the same numbers. Falls back to the local alert rules when the field is
-  // absent -- older firmware, or a reading written before this existed.
-  const mood = useMemo(() => {
-    const fromBoard = BOARD_STATE_MOOD[sensors?.state];
-    if (fromBoard) return fromBoard;
-    if (notifications.length === 0) return "happy";
-    return notifications.some(n => n.type === "alert") ? "sad" : "neutral";
-  }, [sensors?.state, notifications]);
+  // The model is the only thing that judges the plant. The board reads the same
+  // verdict back out of Firebase for its OLED face, so nothing here is a second
+  // opinion derived from the same numbers.
+  const health = plantStatus?.health ?? null;
+  const mood = HEALTH_MOOD[health] ?? "neutral";
 
   // One headline for every place that shows plant status.
-  const statusHeadline = mood === "happy" ? "Healthy" : "Needs attention";
+  let statusHeadline = "Predicting…";
+  if (plantStatusError) statusHeadline = "Unavailable";
+  else if (health) statusHeadline = health;
 
   const triggerPump = async () => {
     moistureBefore.current = sensors?.soil_moisture ?? null;
@@ -580,6 +576,19 @@ function OverviewTab(p) {
 
         <div className="card bmo-card bmo-card--controls">
           <BMO mood={mood}/>
+          <div className={"bmo-status"+(mood!=="happy"?" warn":"")}>
+            {mood==="happy" ? "Thriving" : "Needs attention"}
+          </div>
+          <div className="bmo-alerts">
+            {notifications.length===0
+              ? <div className="bmo-sub">No issues detected</div>
+              : notifications.map(n => (
+                <span key={n.id} className={"bmo-alert bmo-alert--"+n.type}>
+                  {I[n.icon]}{n.msg}
+                </span>
+              ))
+            }
+          </div>
           <div className="bmo-actions">
             <button className="btn-water" onClick={triggerPump}>{I.drop} Water now</button>
           </div>
