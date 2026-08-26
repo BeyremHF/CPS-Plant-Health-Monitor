@@ -114,19 +114,6 @@ def read_firmware_define(name, default, critical=True):
 SOIL_MOISTURE_THRESHOLD = read_firmware_define("WATERING_THRESHOLD", 40.0)
 PUMP_DURATION = int(read_firmware_define("WATERING_PUMP_SECONDS", 2))
 
-# Daily light total for display only
-LAMP_LUX_AT_PLANT = read_firmware_define("LAMP_LUX_AT_PLANT", 1800.0, critical=False)
-
-# rough conversion from lux to PPFD, for DLI calculation
-LUX_TO_PPFD = 1.0 / 74.0        # umol/m2/s per lux, white-ish light
-
-# How long a gap between readings is considered "continuous"
-MAX_SAMPLE_GAP_SECONDS = 120
-
-# What basil actually wants, so the dashboard has something to compare
-DLI_TARGET = 12.0
-DLI_FLOOR = 6.0
-
 UPDATE_INTERVAL_SECONDS = 30
 MIN_PUMP_DURATION = 1
 MAX_PUMP_DURATION = 30
@@ -258,70 +245,6 @@ def get_plant_history(plant_id, n):
     return records
 
 
-# Daily Light
-def get_daily_light(plant_id):
-    """
-    How much light the plant actually received over the last 24 hours.
-    """
-    records = get_plant_history(plant_id, 3000)
-    cutoff = time.time() - 86400
-
-    samples = sorted(
-        (
-            r for r in records
-            if r.get("timestamp", 0) >= cutoff and r.get("light") is not None
-        ),
-        key=lambda r: r["timestamp"],
-    )
-
-    if len(samples) < 2:
-        return {
-            "dli": None,
-            "hours_covered": 0.0,
-            "samples": len(samples),
-            "target": DLI_TARGET,
-            "floor": DLI_FLOOR,
-            "note": "Not enough readings in the last 24 hours.",
-        }
-
-    def received_lux(record):
-        """
-        What the plant was actually getting when this was recorded.
-        """
-        effective = record.get("light_effective")
-
-        if effective is not None:
-            return effective
-
-        lux = record["light"]
-
-        if record.get("lamp"):
-            lux += LAMP_LUX_AT_PLANT
-
-        return lux
-
-    micromoles = 0.0
-    covered_seconds = 0.0
-
-    for earlier, later in zip(samples, samples[1:]):
-        gap = later["timestamp"] - earlier["timestamp"]
-
-        if gap <= 0 or gap > MAX_SAMPLE_GAP_SECONDS:
-            continue
-
-        mean_lux = (received_lux(earlier) + received_lux(later)) / 2.0
-        micromoles += mean_lux * LUX_TO_PPFD * gap
-        covered_seconds += gap
-
-    return {
-        "dli": round(micromoles / 1_000_000.0, 2),
-        "hours_covered": round(covered_seconds / 3600.0, 1),
-        "samples": len(samples),
-        "target": DLI_TARGET,
-        "floor": DLI_FLOOR,
-    }
-
-
 # API Endpoints
 @app.get("/")
 def root():
@@ -348,17 +271,6 @@ def plant():
 def plant_history(plant_id: str, n: int = 100):
     try:
         return get_plant_history(plant_id, n)
-
-    except requests.RequestException as e:
-        raise HTTPException(
-            status_code=503,
-            detail=f"Firebase unavailable: {e}"
-        )
-
-@app.get("/plant/light")
-def plant_light(plant_id: str = "basil-1"):
-    try:
-        return get_daily_light(plant_id)
 
     except requests.RequestException as e:
         raise HTTPException(

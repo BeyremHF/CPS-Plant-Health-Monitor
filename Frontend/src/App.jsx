@@ -12,7 +12,7 @@ import {
   normalizeHistoryRecords,
   recordsToChartData,
 } from "./historyAnalytics";
-import { fetchDailyLight, fetchPlantHistory, fetchPlantStatus, triggerPumpBackend } from "./api";
+import { fetchPlantHistory, fetchPlantStatus, triggerPumpBackend } from "./api";
 import "./App.css";
 
 const BACKEND_POLL_MS = 30_000; // matches backend UPDATE_INTERVAL_SECONDS
@@ -152,37 +152,11 @@ const LIGHT_STATE_LABEL = {
   no_time: "No clock — lamp held off",
 };
 
-// The day's light total, shown as a number and never as a verdict. The lamp is
-// supplementary and known to be under-powered for this plant, so folding this
-// into the plant face would peg the face at "stressed" permanently and cost it
-// a whole level of resolution. Hours covered sits alongside because a low
-// total from a board that spent the night switched off is not the same thing
-// as a low total from a dim day.
-function DailyLight({ daily }) {
-  if (!daily) return null;
-  if (daily.dli == null)
-    return <div className="light-note">Daily light: not enough readings yet</div>;
-  return (
-    <div className="light-dli">
-      <div className="light-dli-row">
-        <span className="light-dli-value">{daily.dli}</span>
-        <span className="light-dli-unit">mol/m²/day</span>
-      </div>
-      <div className="light-note">
-        basil wants {daily.target}, struggles below {daily.floor}
-      </div>
-      <div className="light-note">
-        measured over {daily.hours_covered} h of the last 24
-      </div>
-    </div>
-  );
-}
-
 // `ambient` is the room measured with the lamp dropped; `effective` is what the
 // plant is receiving, lamp included. The board measures both every cycle. They
 // are equal whenever the lamp is off, so the room figure is only worth showing
 // when the lamp is actually adding something.
-function LightControl({ mode, state, onSetMode, daily, ambient, effective, compact = false }) {
+function LightControl({ mode, state, onSetMode, ambient, effective, compact = false }) {
   const lampAdds = ambient != null && effective != null && effective - ambient > 1;
   return (
     <div className={"light-control" + (compact ? " light-control--compact" : "")}>
@@ -213,7 +187,6 @@ function LightControl({ mode, state, onSetMode, daily, ambient, effective, compa
       {mode === "auto" && (
         <div className="light-note">06:00–22:00, unless the room is already bright.</div>
       )}
-      <DailyLight daily={daily}/>
     </div>
   );
 }
@@ -305,7 +278,6 @@ export default function App() {
   // What the lamp is doing, straight from the board. `mode` is intent, `state`
   // is the relay's actual position -- see LightControl.
   const [light,setLight]          = useState({ mode:"auto", state:null });
-  const [dailyLight,setDailyLight]= useState(null);
   const [history,   setHistory]   = useState(null);
   const [historyError, setHistoryError] = useState(null);
   const [activePlant,   setActivePlant]   = useState(PLANTS[0].id);
@@ -417,24 +389,6 @@ export default function App() {
     return () => { cancelled = true; clearInterval(interval); };
   }, []);
 
-  // Polled
-  useEffect(() => {
-    let cancelled = false;
-
-    const load = async () => {
-      try {
-        const d = await fetchDailyLight(activePlant);
-        if (!cancelled) setDailyLight(d);
-      } catch {
-        if (!cancelled) setDailyLight(null);
-      }
-    };
-
-    load();
-    const t = setInterval(load, BACKEND_POLL_MS);
-    return () => { cancelled = true; clearInterval(t); };
-  }, [activePlant]);
-
   const notifications = useMemo(() =>
     getNotifications(sensors, ps.thresholds, reservoirEmpty),
     [sensors, ps.thresholds, reservoirEmpty]
@@ -475,7 +429,7 @@ export default function App() {
 
   const shared = {
     sensors, notifications, mood, statusHeadline, memHistory, history, historyError,
-    ps, updatePS, triggerPump, light, setLightMode, dailyLight,
+    ps, updatePS, triggerPump, light, setLightMode,
     updated, activePlant, setActivePlant, activePlantLabel,
     theme, setTheme,
     enlargedChart, setEnlargedChart,
@@ -563,7 +517,7 @@ const GRAPH_DEFS = [
 ];
 
 function OverviewTab(p) {
-  const { sensors, notifications, mood, statusHeadline, memHistory, ps, updatePS, triggerPump, light, setLightMode, dailyLight, updated, activePlantLabel, goToChart,
+  const { sensors, notifications, mood, statusHeadline, memHistory, ps, updatePS, triggerPump, light, setLightMode, updated, activePlantLabel, goToChart,
           plantStatus, plantStatusError, plantStatusLoading } = p;
   const activeGraphs = GRAPH_DEFS.filter(g => ps.graphs[g.key]);
   const gridCols = activeGraphs.map(()=>"1fr").join(" ");
@@ -629,7 +583,6 @@ function OverviewTab(p) {
             mode={light.mode}
             state={light.state}
             onSetMode={setLightMode}
-            daily={dailyLight}
             ambient={sensors?.light}
             effective={sensors?.light_effective}
           />
@@ -995,7 +948,7 @@ function SettingSlider({ icon, label, suffix, min, max, step, value, onChange })
    Mobile shell
    ══════════════════════════════════════════════════════════════ */
 function MobileShell(p) {
-  const { sensors, notifications, mood, statusHeadline, memHistory, ps, triggerPump, light, setLightMode, dailyLight, updated, activePlantLabel, theme, setTheme, goToChart,
+  const { sensors, notifications, mood, statusHeadline, memHistory, ps, triggerPump, light, setLightMode, updated, activePlantLabel, theme, setTheme, goToChart,
           plantStatus, plantStatusError, plantStatusLoading } = p;
   const [tab, setTab] = useState("overview");
   const activeGraphs = GRAPH_DEFS.filter(g => ps.graphs[g.key]);
@@ -1036,7 +989,6 @@ function MobileShell(p) {
                 mode={light.mode}
                 state={light.state}
                 onSetMode={setLightMode}
-                daily={dailyLight}
                 ambient={sensors?.light}
                 effective={sensors?.light_effective}
                 compact

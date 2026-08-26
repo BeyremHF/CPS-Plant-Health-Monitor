@@ -1,4 +1,4 @@
-/* ── Theme tokens ───────────────────────────────────────────── */
+﻿/* â”€â”€ Theme tokens â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 :root,
 :root[data-theme="light"] {
   --bg:           #f3ede0;
@@ -58,7 +58,7 @@
   color-scheme: dark;
 }
 
-/* ── Reset & base ────────────────────────────────────────────── */
+/* â”€â”€ Reset & base â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 * { box-sizing: border-box; }
 html, body {
   margin: 0;
@@ -74,10 +74,10 @@ button { font: inherit; cursor: pointer; }
 *::-webkit-scrollbar { width: 8px; }
 *::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
 
-/* ── App wrapper ─────────────────────────────────────────────── */
+/* â”€â”€ App wrapper â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .app { min-height: 100svh; display: flex; justify-content: center; background: var(--bg); }
 
-/* ── Desktop shell ───────────────────────────────────────────── */
+/* â”€â”€ Desktop shell â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .shell-desktop {
   width: 100%;
   max-width: 1280px;
@@ -87,7 +87,7 @@ button { font: inherit; cursor: pointer; }
   padding: 24px;
 }
 
-/* ── Sidebar ─────────────────────────────────────────────────── */
+/* â”€â”€ Sidebar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .sidebar { display: flex; flex-direction: column; gap: 24px; padding: 8px 0 0; }
 
 .brand { display: flex; gap: 12px; align-items: center; padding: 4px 12px; }
@@ -137,7 +137,7 @@ button { font: inherit; cursor: pointer; }
 }
 .theme-toggle svg { width: 14px; height: 14px; }
 
-/* ── Main pane ───────────────────────────────────────────────── */
+/* â”€â”€ Main pane â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .main { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
 
 .main-header { display: flex; align-items: center; justify-content: space-between; padding: 4px 4px 0; gap: 12px; }
@@ -159,7 +159,7 @@ button { font: inherit; cursor: pointer; }
   box-shadow: 0 0 0 3px color-mix(in oklab, var(--green) 25%, transparent);
 }
 
-/* ── Top row ─────────────────────────────────────────────────── */
+/* â”€â”€ Top row â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .top-row { display: grid; grid-template-columns: 1fr 220px 220px; gap: 20px; }
 
 .card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 20px; }
@@ -187,7 +187,7 @@ button { font: inherit; cursor: pointer; }
 .sensor-value { font-size: 22px; font-weight: 700; color: var(--text); letter-spacing: -0.01em; }
 .sensor-unit { font-size: 12px; color: var(--text-muted); font-weight: 500; margin-left: 2px; }
 
-/* ── BMO card ────────────────────────────────────────────────── */
+/* â”€â”€ BMO card â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .bmo-card { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 20px 16px; }
 
 .ml-card { display: flex; flex-direction: column; gap: 10px; }
@@ -236,7 +236,7 @@ button { font: inherit; cursor: pointer; }
 .bmo-alert--warn  { background: var(--warn-bg); color: var(--warn-on-bg); }
 .bmo-alert--alert { background: var(--warn-bg); color: var(--warn-on-bg); }
 
-/* ── Bottom row ──────────────────────────────────────────────── */
+/* â”€â”€ Bottom row â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .bottom-row { display: grid; grid-template-columns: 1fr 1fr 220px; gap: 20px; }
 
 .chart-card { padding: 18px 18px 8px; display: flex; flex-direction: column; gap: 8px; min-height: 180px; container-type: inline-size; }
@@ -264,7 +264,7 @@ button { font: inherit; cursor: pointer; }
 .duration-pill.active { background: var(--water-bg); color: var(--water-fg); border-color: transparent; }
 .duration-pills-lg .duration-pill { padding: clamp(0.5rem, 1.2vh, 0.8rem) 0; font-size: 1rem; }
 
-/* ── Grow light ─────────────────────────── */
+/* â”€â”€ Grow light â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .light-control { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
 .light-head { display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; color: var(--text-muted); }
 .light-head svg { width: 14px; height: 14px; }
@@ -275,14 +275,8 @@ button { font: inherit; cursor: pointer; }
 .light-mode-pill.active { background: var(--light-bg); color: var(--light-fg); border-color: transparent; }
 .light-mode-pill:hover { filter: brightness(0.97); }
 .light-note { font-size: 11px; color: var(--text-muted); line-height: 1.4; }
-.light-dli { display: flex; flex-direction: column; gap: 2px; padding-top: 8px; border-top: 1px solid var(--border); }
-.light-dli-row { display: flex; align-items: baseline; gap: 5px; }
-.light-dli-value { font-size: 20px; font-weight: 700; color: var(--text); }
-.light-dli-unit { font-size: 11px; color: var(--text-muted); }
-.light-control--compact .light-dli-value { font-size: 18px; }
 
-
-/* ── History tab ─────────────────────────────────────────────── */
+/* â”€â”€ History tab â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .range-pills { display: flex; gap: 6px; flex-wrap: wrap; }
 .range-pill { padding: 6px 12px; border-radius: 999px; border: 1px solid var(--border); background: transparent; color: var(--text-muted); font-size: 12px; font-weight: 600; }
 .range-pill.active { background: var(--green-bg); color: var(--green-on-bg); border-color: transparent; }
@@ -379,7 +373,7 @@ button { font: inherit; cursor: pointer; }
 .history-stat-label { font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-dim); font-weight: 600; }
 .history-stat-value { font-size: 18px; font-weight: 700; color: var(--text); letter-spacing: -0.01em; }
 
-/* ── Settings tab ────────────────────────────────────────────── */
+/* â”€â”€ Settings tab â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .settings-grid { column-count: 2; column-gap: 20px; }
 .settings-card { break-inside: avoid; margin-bottom: 20px; }
 .settings-card { display: flex; flex-direction: column; gap: 14px; padding: 22px; }
@@ -422,7 +416,7 @@ button { font: inherit; cursor: pointer; }
 .info-row svg { width: 14px; height: 14px; }
 .info-good { color: var(--green); font-weight: 600; }
 
-/* ── Mobile ──────────────────────────────────────────────────── */
+/* â”€â”€ Mobile â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .shell-mobile { width: 100%; max-width: 380px; min-height: 100svh; display: flex; flex-direction: column; background: var(--bg); }
 .mobile-content { flex: 1; display: flex; flex-direction: column; gap: 14px; padding: 18px 18px 90px; overflow-y: auto; }
 .mobile-topbar { display: flex; align-items: center; justify-content: space-between; padding: 4px 4px 8px; }
@@ -456,7 +450,7 @@ button { font: inherit; cursor: pointer; }
   margin: 2px auto; /* only centre in tab bar context */
 }
 
-/* ── Mobile plant picker popup ───────────────────────────── */
+/* â”€â”€ Mobile plant picker popup â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .plant-picker-overlay {
   position: fixed; inset: 0; z-index: 150;
   background: rgba(0,0,0,0.4);
@@ -518,7 +512,7 @@ button { font: inherit; cursor: pointer; }
   height: 130px !important;
 }
 
-/* ── Responsive ──────────────────────────────────────────────── */
+/* â”€â”€ Responsive â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 @media (max-width: 1080px) {
   .shell-desktop { grid-template-columns: 180px 1fr; padding: 16px; gap: 16px; }
   .top-row     { grid-template-columns: 1fr minmax(160px, 26%) minmax(160px, 26%); }
@@ -527,7 +521,7 @@ button { font: inherit; cursor: pointer; }
   .settings-grid{ grid-template-columns: 1fr; }
 }
 
-/* ── Sidebar contrast ─────────────────────────────────────── */
+/* â”€â”€ Sidebar contrast â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .sidebar {
   background: var(--surface);
   border-right: 1px solid var(--border);
@@ -536,7 +530,7 @@ button { font: inherit; cursor: pointer; }
   overflow-y: auto;
 }
 
-/* ── Overview fits viewport ───────────────────────────────── */
+/* â”€â”€ Overview fits viewport â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .shell-desktop { height: 100vh; align-items: stretch; }
 .main { overflow-y: auto; }
 .main--fit {
@@ -559,7 +553,7 @@ button { font: inherit; cursor: pointer; }
 .overview-wrap .chart-card { min-height: unset; }
 .overview-wrap .chart-svg { flex: 1; }
 
-/* ── Clickable chart cards ────────────────────────────────── */
+/* â”€â”€ Clickable chart cards â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .chart-card--clickable { cursor: pointer; transition: border-color .15s, box-shadow .15s; }
 .chart-card--clickable:hover { border-color: var(--green); box-shadow: 0 0 0 2px color-mix(in oklab, var(--green) 20%, transparent); }
 
@@ -568,7 +562,7 @@ button { font: inherit; cursor: pointer; }
 .chart-expand-icon svg { width: 13px; height: 13px; }
 .chart-card--clickable:hover .chart-expand-icon { opacity: 1; }
 
-/* ── Chart modal ──────────────────────────────────────────── */
+/* â”€â”€ Chart modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .modal-overlay {
   position: fixed; inset: 0; z-index: 200;
   background: rgba(0,0,0,0.65);
@@ -598,7 +592,7 @@ button { font: inherit; cursor: pointer; }
 .modal-chart { flex: 1; min-height: 0; }
 .modal-chart .chart-svg { width: 100%; height: 100%; }
 
-/* ── Preset name input ────────────────────────────────────── */
+/* â”€â”€ Preset name input â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .preset-name-input {
   width: 100%; padding: 10px 14px;
   border-radius: 10px; border: 1px solid var(--border);
@@ -645,25 +639,25 @@ button { font: inherit; cursor: pointer; }
 .color-swatch:hover  { transform: scale(1.15); }
 .color-swatch.active { outline: 2px solid var(--text); outline-offset: 3px; }
 
-/* ── Graph toggles ────────────────────────────────────────── */
+/* â”€â”€ Graph toggles â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .graph-toggles { display: flex; gap: 8px; flex-wrap: wrap; }
 .graph-toggle { padding: 7px 14px; border-radius: 8px; border: 1px solid var(--border); background: transparent; color: var(--text-muted); font-size: 13px; font-weight: 600; transition: all .15s; }
 .graph-toggle.active { background: var(--water-bg); color: var(--water-fg); border-color: transparent; }
 
-/* ══════════════════════════════════════════════════════════════
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
    Viewport scaling + fit-to-screen
-   ──────────────────────────────────────────────────────────────
+   â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
    Goal: at any monitor width, the dashboard looks like it's at
-   ~150–200% zoom on a default browser. Achieved by:
+   ~150â€“200% zoom on a default browser. Achieved by:
      1. Scaling the root font-size with viewport width (clamp).
      2. Rebuilding key dimensions in rem so they scale together.
      3. Sizing the shell + tab content to 100vh so Overview and
         Historical fit without scrolling.
-   ══════════════════════════════════════════════════════════════ */
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 
 /* 1. Root scale: grows with viewport width, capped to match sidebar max width.
-   Sidebar = clamp(200px, 20vw, 380px). Font = sidebar × 0.075.
-   Both freeze at ~1900px logical viewport → no mismatch when resizing. */
+   Sidebar = clamp(200px, 20vw, 380px). Font = sidebar Ã— 0.075.
+   Both freeze at ~1900px logical viewport â†’ no mismatch when resizing. */
 html, :root {
   font-size: clamp(15px, 1.5vw, 28px);
 }
@@ -681,7 +675,7 @@ html, :root {
   overflow: hidden;
 }
 
-/* 3. Sidebar — scaled spacing/type. */
+/* 3. Sidebar â€” scaled spacing/type. */
 .sidebar { gap: clamp(0.8rem, 1.2vw, 1.2rem); padding: 0.7rem 0.7rem 1rem; }
 .brand        { gap: 0.7rem; padding: 0.3rem 0.5rem; align-items: center; }
 .brand-mark   { width: 1.9rem; height: 1.9rem; display: flex; align-items: center; justify-content: center; }
@@ -756,13 +750,13 @@ html, :root {
 .bmo-alert      { font-size: 0.78rem; padding: 0.4rem 0.65rem; gap: 0.4rem; border-radius: 0.55rem; }
 .bmo-alert svg  { width: 0.9rem; height: 0.9rem; flex-shrink: 0; }
 
-/* 7. Charts — tighter so they fit. */
+/* 7. Charts â€” tighter so they fit. */
 .chart-card  { padding: 0.85rem 0.95rem 0.4rem; gap: 0.45rem; min-height: 0; overflow: hidden; }
 .chart-title { font-size: 0.9rem; }
 .chart-pill  { font-size: 0.68rem; padding: 0.22rem 0.6rem; }
 .chart-svg   { min-height: 0; }
 
-/* 8. Controls card — buttons fill width, vh-aware vertical spacing. */
+/* 8. Controls card â€” buttons fill width, vh-aware vertical spacing. */
 .controls-card { padding: clamp(0.5rem, 1.5vh, 1rem) clamp(0.6rem, 1vw, 1rem); gap: clamp(0.3rem, 1vh, 0.6rem); justify-content: center; align-items: stretch; }
 .btn-water, .btn-light {
   display: flex; align-items: center; justify-content: center;
@@ -845,7 +839,7 @@ html, :root {
 .history-wrap .chart-title { font-size: clamp(0.62rem, 1.5vh, 0.8rem); }
 .history-wrap .chart-pill  { font-size: clamp(0.52rem, 1.1vh, 0.6rem); padding: 0.18rem 0.5rem; }
 
-/* 11. Settings tab — can scroll if needed. */
+/* 11. Settings tab â€” can scroll if needed. */
 .settings-grid     { column-gap: clamp(0.8rem, 1vw, 1.4rem); }
 .settings-card     { margin-bottom: clamp(0.8rem, 1vw, 1.4rem); padding: clamp(1.1rem, 1.2vw, 1.8rem); gap: 0.9rem; }
 .settings-section-title{ font-size: 1.05rem; }
