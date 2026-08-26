@@ -160,7 +160,8 @@ button { font: inherit; cursor: pointer; }
 }
 
 /* â”€â”€ Top row â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
-.top-row { display: grid; grid-template-columns: 1fr 220px 220px; gap: 20px; }
+.top-row { display: grid; grid-template-columns: 1fr 220px 260px; gap: 20px; align-items: start; }
+.overview-right-stack { display: flex; flex-direction: column; gap: 20px; }
 
 .card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 20px; }
 
@@ -189,9 +190,13 @@ button { font: inherit; cursor: pointer; }
 
 /* â”€â”€ BMO card â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .bmo-card { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 20px 16px; }
+.bmo-card--controls { align-items: stretch; gap: 12px; }
 
 .ml-card { display: flex; flex-direction: column; gap: 10px; }
 .ml-card .status-value { font-size: 18px; text-transform: capitalize; }
+.ml-card--compact { gap: 8px; padding: 14px 16px; }
+.ml-card--compact .status-value { font-size: 16px; }
+.ml-card--compact .ml-card-caption { font-size: 11px; }
 .ml-card-icon { color: var(--text-dim); display: flex; align-items: center; flex-shrink: 0; }
 .ml-card-icon svg { width: 18px; height: 18px; }
 .ml-card-caption { font-size: 12px; color: var(--text-dim); line-height: 1.4; }
@@ -223,18 +228,24 @@ button { font: inherit; cursor: pointer; }
   justify-content: center;
 }
 
-.bmo-status { font-size: 14px; font-weight: 600; color: var(--green); text-align: center; }
-.bmo-status.warn { color: var(--warn); }
-.bmo-sub { font-size: 12px; color: var(--text-muted); text-align: center; }
-
-.bmo-alerts { display: flex; flex-direction: column; gap: 6px; width: 100%; }
-.bmo-alert {
-  display: inline-flex; align-items: center; gap: 6px;
-  padding: 6px 10px; border-radius: 8px; font-size: 11px; font-weight: 600;
+.status-summary-card { display: flex; flex-direction: column; gap: 4px; padding: 10px 12px; }
+.status-chip-list { display: flex; flex-direction: column; gap: 4px; }
+.status-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 7px;
+  border-radius: 8px;
+  font-size: 9px;
+  line-height: 1.2;
+  font-weight: 600;
+  background: var(--green-bg);
+  color: var(--green-on-bg);
 }
-.bmo-alert svg { width: 12px; height: 12px; flex-shrink: 0; }
-.bmo-alert--warn  { background: var(--warn-bg); color: var(--warn-on-bg); }
-.bmo-alert--alert { background: var(--warn-bg); color: var(--warn-on-bg); }
+.status-chip.warn {
+  background: var(--warn-bg);
+  color: var(--warn-on-bg);
+}
 
 /* â”€â”€ Bottom row â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .bottom-row { display: grid; grid-template-columns: 1fr 1fr 220px; gap: 20px; }
@@ -859,3 +870,4 @@ html, :root {
 @media (max-width: 720px) {
   html, :root { font-size: 15px; }
 }
+

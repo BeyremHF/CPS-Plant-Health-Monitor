@@ -185,7 +185,7 @@ function LightControl({ mode, state, onSetMode, ambient, effective, compact = fa
         <div className="light-note">Reverts to Auto after 2 hours.</div>
       )}
       {mode === "auto" && (
-        <div className="light-note">06:00–22:00, unless the room is already bright.</div>
+        <div className="light-note">06:00–22:00, unless the room is bright.</div>
       )}
     </div>
   );
@@ -202,7 +202,33 @@ function Sensor({ icon, label, value, unit, decimals = 0 }) {
 }
 
 /* ── ML prediction card ────────────────────────────────────── */
-function MLPredictionCard({ prediction, error, loading }) {
+function StatusChip({ label, warn = false }) {
+  return <span className={"status-chip" + (warn ? " warn" : " ok")}>{label}</span>;
+}
+
+function PlantStatusSummary({ waterTank, moisture, light, thresholds }) {
+  const soilLow = moisture != null && moisture < thresholds.moistureMin;
+  const lightLow = light != null && light < thresholds.lightMin;
+  const tankText = waterTank
+    ? "water tank: empty"
+    : "water tank: filled";
+  const moistureText =
+    moisture != null ? `soil moisture: ${soilLow ? "low" : "ok"}` : "soil moisture: unknown";
+  const lightText =
+    light != null ? `light level: ${lightLow ? "low" : "ok"}` : "light level: unknown";
+
+  return (
+    <div className="card status-summary-card">
+      <div className="status-chip-list">
+        <StatusChip label={tankText} warn={waterTank?.empty === true} />
+        <StatusChip label={moistureText} warn={soilLow} />
+        <StatusChip label={lightText} warn={lightLow} />
+      </div>
+    </div>
+  );
+}
+
+function MLPredictionCard({ prediction, error, loading, compact = false }) {
   const health = prediction?.health ?? null;
   const isHealthy = health ? /healthy/i.test(health) : null;
 
@@ -212,7 +238,7 @@ function MLPredictionCard({ prediction, error, loading }) {
   else if (loading) statusText = "Predicting…";
 
   return (
-    <div className="card ml-card">
+    <div className={"card ml-card" + (compact ? " ml-card--compact" : "")}>
       <div className="status-head">
         <div>
           <div className="status-label">ML prediction</div>
@@ -285,7 +311,7 @@ export default function App() {
   const [plantSettings, setPlantSettings] = useState(loadPlantSettings);
   const [reservoirEmpty,setReservoirEmpty]= useState(false);
   const [enlargedChart, setEnlargedChart] = useState(null); // key string or null
-  const [plantStatus,        setPlantStatus]        = useState(null); // { sensors, health, pump }
+  const [plantStatus,        setPlantStatus]        = useState(null); // { sensors, health, pump, water_tank }
   const [plantStatusError,   setPlantStatusError]   = useState(null);
   const [plantStatusLoading, setPlantStatusLoading] = useState(true);
   const moistureBefore = useRef(null);
@@ -523,15 +549,6 @@ function OverviewTab(p) {
   const gridCols = activeGraphs.map(()=>"1fr").join(" ");
 
   const statusCardRef = useRef(null);
-  const [bmoMaxH, setBmoMaxH] = useState(null);
-  useEffect(() => {
-    if (!statusCardRef.current) return;
-    const update = () => { if (statusCardRef.current) setBmoMaxH(statusCardRef.current.offsetHeight); };
-    const ro = new ResizeObserver(update);
-    ro.observe(statusCardRef.current);
-    update();
-    return () => ro.disconnect();
-  }, []);
 
   return (
     <div className="overview-wrap">
@@ -561,21 +578,8 @@ function OverviewTab(p) {
           </div>
         </div>
 
-        <div className="card bmo-card" style={bmoMaxH ? { maxHeight: bmoMaxH, overflow:'hidden' } : {}}>
+        <div className="card bmo-card bmo-card--controls">
           <BMO mood={mood}/>
-          <div className={"bmo-status"+(mood!=="happy"?" warn":"")}>
-            {mood==="happy" ? "Thriving" : "Needs attention"}
-          </div>
-          <div className="bmo-alerts">
-            {notifications.length===0
-              ? <div className="bmo-sub">No issues detected</div>
-              : notifications.map(n => (
-                <span key={n.id} className={"bmo-alert bmo-alert--"+n.type}>
-                  {I[n.icon]}{n.msg}
-                </span>
-              ))
-            }
-          </div>
           <div className="bmo-actions">
             <button className="btn-water" onClick={triggerPump}>{I.drop} Water now</button>
           </div>
@@ -588,7 +592,15 @@ function OverviewTab(p) {
           />
         </div>
 
-        <MLPredictionCard prediction={plantStatus} error={plantStatusError} loading={plantStatusLoading}/>
+        <div className="overview-right-stack">
+          <PlantStatusSummary
+            waterTank={plantStatus?.water_tank}
+            moisture={sensors?.soil_moisture}
+            light={sensors?.light}
+            thresholds={ps.thresholds}
+          />
+          <MLPredictionCard prediction={plantStatus} error={plantStatusError} loading={plantStatusLoading} compact/>
+        </div>
       </div>
 
       <div className="bottom-row" style={{ gridTemplateColumns: gridCols }}>
@@ -969,22 +981,11 @@ function MobileShell(p) {
               <h1 className="mobile-title">{activePlantLabel}</h1>
               <span className="mobile-updated">{updated.replace("Updated ","")}</span>
             </div>
-            <div className="card mobile-status-card">
+            <div className="card bmo-card bmo-card--controls">
               <BMO mood={mood}/>
-              <div className="mobile-status-text">
-                <div className={"status-value"+(mood!=="happy"?" warn":"")}>{statusHeadline}</div>
-                {notifications.length===0
-                  ? <div className="status-updated">All readings normal</div>
-                  : notifications.map(n=>(
-                    <div key={n.id} className="mobile-notif">{I[n.icon]} {n.msg}</div>
-                  ))
-                }
+              <div className="mobile-actions">
+                <button className="btn-water" onClick={triggerPump}>{I.drop} Water now</button>
               </div>
-            </div>
-            <div className="mobile-actions">
-              <button className="btn-water" onClick={triggerPump}>{I.drop} Water now</button>
-            </div>
-            <div className="card">
               <LightControl
                 mode={light.mode}
                 state={light.state}
@@ -994,7 +995,13 @@ function MobileShell(p) {
                 compact
               />
             </div>
-            <MLPredictionCard prediction={plantStatus} error={plantStatusError} loading={plantStatusLoading}/>
+            <PlantStatusSummary
+              waterTank={plantStatus?.water_tank}
+              moisture={sensors?.soil_moisture}
+              light={sensors?.light}
+              thresholds={ps.thresholds}
+            />
+            <MLPredictionCard prediction={plantStatus} error={plantStatusError} loading={plantStatusLoading} compact/>
             <div className="mobile-sensor-grid">
               {[{icon:I.drop,label:"Moisture",value:sensors?.soil_moisture,unit:"%"},{icon:I.therm,label:"Temp",value:sensors?.temperature,unit:"°C"},{icon:I.sun,label:"Light",value:sensors?.light,unit:"lx"},{icon:I.wind,label:"Humidity",value:sensors?.humidity,unit:"%"}].map(s=>(
                 <div key={s.label} className="mobile-sensor sensor">
