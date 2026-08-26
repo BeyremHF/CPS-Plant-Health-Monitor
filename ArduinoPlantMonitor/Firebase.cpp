@@ -253,7 +253,6 @@ void sendLightState(const char* state) {
 // Send sensors
 void sendSensorData(
     const SensorData& data,
-    const char* state,
     bool lampOn,
     float effectiveLux
 ) {
@@ -278,11 +277,6 @@ void sendSensorData(
     doc["soil_raw"] = data.soilRaw;
 
     doc["water_tank_empty"] = data.waterTankEmpty;
-    
-    // Absent until the backend has been heard from, rather than a guess.
-    if (state != nullptr && state[0] != '\0') {
-        doc["state"] = state;
-    }
 
     doc["light_effective"] =
         round(effectiveLux * 10) / 10.0;

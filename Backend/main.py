@@ -322,8 +322,9 @@ def activate_pump(pump_request: PumpRequest = PumpRequest()):
         )
 
 
-# Automatic Watering
-def automatic_watering_loop():
+# The backend's own clock: classify the plant for the board, then water it if
+# the soil says so. Runs whether or not anyone has the dashboard open.
+def background_loop():
     while True:
         try:
             if not firmware_config_ok:
@@ -363,11 +364,11 @@ def automatic_watering_loop():
 @app.on_event("startup")
 def start_background_tasks():
     thread = threading.Thread(
-        target=automatic_watering_loop,
+        target=background_loop,
         daemon=True
     )
     thread.start()
-    print("Automatic watering started.")
+    print("Health prediction and automatic watering started.")
 
     if firmware_config_ok:
         print(

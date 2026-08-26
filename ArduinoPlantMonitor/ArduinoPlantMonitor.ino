@@ -655,7 +655,7 @@ void loop() {
 
         // Blue LED while sending
         setLED(0, 0, 255);
-        sendSensorData(data, healthSlug.c_str(), lightIsOn, lastEffectiveLux);
+        sendSensorData(data, lightIsOn, lastEffectiveLux);
         setLED(0, 0, 0);
         lastSensorSend = millis();
     }
