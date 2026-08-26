@@ -10,6 +10,8 @@ struct SensorData {
     float light;
     float soilMoisture;
     int soilRaw;
+    bool waterTankEmpty;
+
 };
 
 bool initSensors();
@@ -18,5 +20,6 @@ bool initSensors();
 float readLight();
 
 SensorData readSensors();
+bool isWaterTankEmpty();
 
 #endif

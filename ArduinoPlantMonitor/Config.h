@@ -19,6 +19,7 @@
 #define ADC_PIN 1
 #define RELAY_PUMP_PIN 2
 #define RELAY_LIGHT_PIN 4
+#define WATER_LEVEL_PIN 5
 
 #define I2C_SDA 8
 #define I2C_SCL 9

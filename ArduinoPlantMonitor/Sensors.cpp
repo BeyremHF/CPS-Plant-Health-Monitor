@@ -23,6 +23,8 @@ bool initSensors() {
     // ADC
     analogReadResolution(12);
     analogSetPinAttenuation(ADC_PIN, ADC_11db);
+    pinMode(WATER_LEVEL_PIN, INPUT_PULLUP);
+
     return true;
 }
 
@@ -54,6 +56,9 @@ float readSoilMoisture(int &raw) {
     return moisture;
 }
 
+bool isWaterTankEmpty() {
+    return digitalRead(WATER_LEVEL_PIN) == LOW;
+}
 
 // Read all sensors
 SensorData readSensors() {
@@ -66,6 +71,7 @@ SensorData readSensors() {
         readLight();
     data.soilMoisture =
         readSoilMoisture(data.soilRaw);
+    data.waterTankEmpty = isWaterTankEmpty();
 
     return data;
 }

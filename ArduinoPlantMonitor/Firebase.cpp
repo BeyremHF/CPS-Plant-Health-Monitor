@@ -239,6 +239,8 @@ void sendSensorData(
 
     doc["soil_raw"] = data.soilRaw;
 
+    doc["water_tank_empty"] = data.waterTankEmpty;
+    
     doc["state"] = state;
 
     doc["light_effective"] =

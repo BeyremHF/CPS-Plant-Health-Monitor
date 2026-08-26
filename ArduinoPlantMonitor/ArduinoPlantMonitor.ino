@@ -128,7 +128,11 @@ const char* waterSourceName(WaterSource source) {
 // Runs the pump and blocks for the duration. Both the remote path and the
 // fallback path go through here so the logging and the dry-clock reset will always be the same
 void runPump(int seconds, WaterSource source) {
-
+    if (isWaterTankEmpty()) {
+        Serial.println("[pump] BLOCKED -- water tank is empty");
+        digitalWrite(RELAY_PUMP_PIN, LOW);
+        return;
+    }
     Serial.printf("[pump] ON for %d s -- requested by %s\n",
                   seconds, waterSourceName(source));
 
