@@ -205,16 +205,21 @@ def get_plant_status():
     firebase_data = read_firebase()
     sensor_data = firebase_to_model_input(firebase_data)
     health_status = predict_plant_health(sensor_data)
+
+    sensors = firebase_data.get("sensors", {})
     pump = firebase_data.get("pump", {})
+
     return {
         "sensors": sensor_data,
         "health": health_status,
         "pump": {
             "trigger": pump.get("trigger", False),
             "duration": pump.get("duration", 0),
-        }
+        },
+        "water_tank": {
+            "empty": sensors.get("water_tank_empty", False),
+        },
     }
-
 
 # Plant History
 def get_plant_history(plant_id, n):
@@ -313,7 +318,11 @@ def automatic_watering_loop():
             moisture = sensor_data["Soil_Moisture"]
             pump = firebase_data.get("pump", {})
             pump_trigger = pump.get("trigger", False)
-            if moisture < SOIL_MOISTURE_THRESHOLD:
+            sensors = firebase_data.get("sensors", {})
+            water_tank_empty = sensors.get("water_tank_empty", False)
+            if water_tank_empty:
+                print("Tank is empty -- automatic watering skipped.")
+            elif moisture < SOIL_MOISTURE_THRESHOLD:
                 if not pump_trigger:
                     print(
                         f"Moisture {moisture}% < "
