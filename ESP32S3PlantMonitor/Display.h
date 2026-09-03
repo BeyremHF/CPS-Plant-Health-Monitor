@@ -1,10 +1,10 @@
 #ifndef DISPLAY_H
 #define DISPLAY_H
-
 #include <Arduino.h>
 #include <Wire.h>
-#include <U8g2lib.h>
-
+#include <SPI.h>
+#include <Adafruit_GFX.h>
+#include <Adafruit_ILI9341.h>
 #include "Sensors.h"
 
 // How the plant is doing. This is the "default" the screen falls back to
@@ -21,7 +21,10 @@ enum class DisplayScreen {
     CONNECTING,
     SCANNING,
     SENSORS,
-    PUMPING
+    PUMPING,
+    NONE,
+    BOOT,
+    TANK_EMPTY
 };
 
 class Display {
@@ -48,17 +51,18 @@ public:
     void showConnecting();
     void showScanning();
     void showPumping(int duration);
-
+    void showBoot(const char* status, bool success, bool appendStatus = true);
     void showSensors(
         const SensorData& data,
         float effectiveLux,
         unsigned long ambientAt,
         unsigned long holdMs = 4000
     );
+    void showTankEmptyWarning(unsigned long holdMs = 4000);
     void clearOverride();
-
+    void setSystemStatus(bool lampOn, unsigned long lastSyncMs);
 private:
-    U8G2_SH1106_128X64_NONAME_F_HW_I2C u8g2;
+    Adafruit_ILI9341 tft;
 
     PlantState plantState;
 
@@ -73,7 +77,16 @@ private:
     // LIGHT_AMBIENT_MS, so it is usually older than the rest of the row.
     unsigned long lastAmbientAt;
     int pumpDuration;
+    int lastAnimationFrame;
+    DisplayScreen lastRenderedScreen;
+    const char* bootStatus;
+    bool bootSuccess;
+    bool hudLampOn = false;
+    unsigned long hudLastSync = 0;
 
+    String logLines[6];
+    void addLogLine(const String& line);
+    void drawTerminalScreen(const char* title);
     void drawCentered(const char* text, int y);
 
     void drawFace();
@@ -86,7 +99,8 @@ private:
     );
     void drawPumpingScreen(int duration);
     void drawSensorsScreen(const SensorData& data, float effectiveLux);
-
+    void drawTankEmptyScreen();
+    void drawHUD(); 
     void render();
     bool overrideActive();
 };

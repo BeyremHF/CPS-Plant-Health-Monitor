@@ -5,7 +5,7 @@
 #include "Sensors.h"
 #include "Firebase.h"
 #include "Display.h"
-
+#include <WiFi.h>
 unsigned long lastSensorSend = 0;
 Display display;
 
@@ -88,6 +88,7 @@ const char* waterSourceName(WaterSource source) {
 void runPump(int seconds, WaterSource source) {
     if (isWaterTankEmpty()) {
         Serial.println("[pump] BLOCKED -- water tank is empty");
+        display.showTankEmptyWarning(3000);
         digitalWrite(RELAY_PUMP_PIN, LOW);
         return;
     }
@@ -97,7 +98,7 @@ void runPump(int seconds, WaterSource source) {
     display.showPumping(seconds);
 
     digitalWrite(RELAY_PUMP_PIN, HIGH);
-    delay(seconds * 1000UL);
+    display.updateFor(seconds * 1000UL);
     digitalWrite(RELAY_PUMP_PIN, LOW);
 
     display.clearOverride();
@@ -539,6 +540,7 @@ void setup() {
     Serial.println();
     Serial.println("Plant Monitor");
 
+
     // LED
     initLED();
 
@@ -548,9 +550,8 @@ void setup() {
 
     pinMode(RELAY_LIGHT_PIN, OUTPUT);
     digitalWrite(RELAY_LIGHT_PIN, LOW);
-
-    //Display
     display.begin();
+    display.showBoot("Display ready", true);
 
     // Sensors
     while (!initSensors()) {
@@ -558,16 +559,32 @@ void setup() {
         Serial.println("Retrying in 3 seconds...");
         setLED(255, 80, 0);
         // Animates the startup bar while waiting, instead of freezing it.
+        display.showBoot(
+            "Sensors not found",
+            false
+        );
+
         display.updateFor(3000);
     }
-
+    display.showBoot(
+        "Sensors ready",
+        true
+    );
+    delay(500);
     // WiFi
-    display.showConnecting();
-    initWiFi();
-    display.clearOverride();
 
-    Serial.println("System ready!");
-    display.update();
+    display.showBoot("Connecting WiFi...", true, false);
+    initWiFi();
+
+    // Fetch the IP address and format it into a string
+    String ipStatus = "IP: " + WiFi.localIP().toString();
+    
+    // Display the IP on the screen and hold it long enough to read
+    display.showBoot(ipStatus.c_str(), true);
+    delay(1000);
+
+    lastSensorSend = millis() - SENSOR_INTERVAL;
+
 }
 
 
@@ -668,7 +685,7 @@ void loop() {
     expireLightManual();
     applyLight(lightShouldBeOn());
     publishLightState();
-
+    display.setSystemStatus(lightIsOn, lastSensorSend);
     // Keeps the screen animating instead of freezing on one frame.
     display.updateFor(LOOP_INTERVAL);
 }

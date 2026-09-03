@@ -24,6 +24,14 @@
 #define I2C_SDA 8
 #define I2C_SCL 9
 
+// Display
+#define TFT_CS    10
+#define TFT_DC     7
+#define TFT_RST    6
+#define TFT_MOSI  11
+#define TFT_SCK   12
+#define TFT_MISO  13
+
 // Sensors
 #define BH1750_ADDR 0x23
 
@@ -76,7 +84,7 @@
 #define SENSOR_INTERVAL 30000UL
 
 // Display
-#define SENSOR_SCREEN_MS 4000UL
+#define SENSOR_SCREEN_MS 8000UL
 #define SCAN_SCREEN_MS 1500UL
 #define LOOP_INTERVAL 2000UL
 
