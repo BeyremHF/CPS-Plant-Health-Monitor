@@ -1,264 +1,151 @@
-# Plant-Health-Monitor
-A smart plant monitoring system that tracks soil moisture, temperature, humidity, and light levels in real time, and automatically waters your plants when they need it.
+# Plant Health Monitor
 
+A smart plant monitoring system built on an ESP32-S3. It tracks soil moisture,
+temperature, humidity, air pressure, and light, waters plants automatically
+when the soil gets dry, runs a grow light on a schedule, and classifies plant
+health with a machine learning model. A React dashboard shows live readings
+and history, and lets you control watering and lighting manually.
 
----
+Everything meets in a Firebase Realtime Database: the board publishes sensor
+data and reads back commands, a FastAPI backend runs the ML model and the
+automatic watering logic, and the frontend reads and writes the same database
+for a live view and manual control.
 
-## Getting Started
+## Features
 
-Setting this up from a fresh clone. There are three parts to set up — the
-**board**, the **backend**, and the **frontend** — plus Firebase, which needs no
-setup at all because it already runs on Google's servers and is where the other
-three meet.
+- Live sensor readings (soil moisture, temperature, humidity, pressure, and
+  ambient light) pushed to Firebase every 30 seconds, plus a rolling history
+- Automatic watering: the backend triggers the pump when soil moisture drops
+  below threshold, with a standalone on-board fallback if the backend goes
+  quiet while the soil stays dry
+- Water tank level sensing: the pump refuses to run, and the dashboard flags
+  it, when the tank is empty
+- Grow light auto-control on a daily photoperiod, vetoed when the room is
+  already bright enough, with manual on/off override from the dashboard
+  (manual "on" expires back to auto after 2 hours)
+- ML-based health classification (Random Forest: Healthy / Moderate Stress /
+  High Stress) served by the backend and mirrored on the board's display
+- OLED display with a face that reflects the plant's health, animated
+  loading/scanning/pumping screens, and a live sensor readout
+- RGB status LED for Wi-Fi and sensor state
+- React dashboard: live status, VPD, historical charts with 1h/6h/12h/24h/7d
+  ranges, a computed plant health score with trend summaries, per-plant
+  presets, alert thresholds, manual "Water now", light control, and
+  light/dark themes
+- Multi-plant support in the dashboard (readings are tagged and stored per
+  plant ID)
 
-The board is the one that works differently: you don't start a program on it each
-session. You flash the firmware onto it once, and from then on it runs by itself
-whenever it has power, even with your laptop closed. You only reflash when the
-firmware changes.
+## Hardware
 
-All paths below are relative to the repository root, so `cd` into your clone
-first.
+- ESP32-S3 DevKitC-1
+- BME280, temperature, humidity, pressure (I2C)
+- BH1750, ambient light (I2C)
+- AZDelivery capacitive soil moisture sensor (analog)
+- Water level switch, for tank-empty detection (digital)
+- 2x Songle SRD-12VDC-SL-C relay module: one for the pump, one for the grow
+  light
+- QR50E water pump
+- Grow light, relay-switched
+- SH1106 128x64 I2C OLED display
+- Adafruit NeoPixel (single RGB LED) for status
 
-### Prerequisites
+Full pinout, I2C addresses, and soil-moisture calibration values are in
+[ESP_Scripts/Wiring.md](ESP_Scripts/Wiring.md).
 
-| Tool | For | Where |
-|---|---|---|
-| [Arduino IDE](https://www.arduino.cc/en/software) 2.x | the board | arduino.cc |
-| [Node.js](https://nodejs.org/) (LTS) | the frontend | nodejs.org |
-| [Python](https://www.python.org/downloads/) 3.10+ | the backend | python.org |
-| A **data** USB-C cable | flashing the board | not included with the board |
+## Tech stack
 
-A charge-only USB cable is the single most common setup failure — the board
-powers up but no COM port ever appears. If in doubt, use one you've used to copy
-files off a phone.
+- **Firmware**: C++ on the Arduino framework, targeting the ESP32-S3, flashed
+  through the Arduino IDE
+- **Backend**: Python, FastAPI, scikit-learn (Random Forest classifier)
+- **Frontend**: React 19 + Vite
+- **Data layer**: Firebase Realtime Database
 
----
+## Setup
 
-### Part 1 — Board (ESP32-S3)
+### 1. Firmware (`ESP32S3PlantMonitor/`)
 
-**1. Create your `Secrets.h`.** Required, and the step people forget. WiFi
-credentials are kept out of git so nobody's personal password lands in the
-repository, which means a fresh clone has no network details in it at all.
+1. Copy the secrets template and fill in your Wi-Fi credentials (2.4 GHz,
+   since the ESP32-S3 can't join a 5 GHz-only network):
 
-```powershell
-copy ArduinoPlantMonitor\Secrets.example.h ArduinoPlantMonitor\Secrets.h
-```
+   ```
+   copy ESP32S3PlantMonitor\Secrets.example.h ESP32S3PlantMonitor\Secrets.h
+   ```
 
-On macOS or Linux, `cp` instead of `copy`. Then open `Secrets.h` and fill in
-your own network:
+   ```c
+   #define WIFI_SSID     "your-network"
+   #define WIFI_PASSWORD "your-password"
+   ```
 
-```c
-#define WIFI_SSID     "your-network"
-#define WIFI_PASSWORD "your-password"
-```
+2. In the Arduino IDE, add the ESP32 board package under File → Preferences
+   → Additional boards manager URLs:
 
-Use a **2.4 GHz** network since the ESP32 cannot see 5 GHz-only networks. 
+   ```
+   https://espressif.github.io/arduino-esp32/package_esp32_index.json
+   ```
 
-**2. Add ESP32 board support.** File → Preferences → *Additional boards manager
-URLs*:
+   Then install **esp32 by Espressif Systems** from Boards Manager.
 
-```
-https://espressif.github.io/arduino-esp32/package_esp32_index.json
-```
+3. Install these libraries from the Library Manager:
+   - `Adafruit BME280 Library`
+   - `Adafruit Unified Sensor`
+   - `Adafruit NeoPixel`
+   - `ArduinoJson` (v7)
+   - `U8g2`
 
-Then Tools → Board → Boards Manager, search `esp32`, install **esp32 by
-Espressif Systems**. It's a large download (it includes the whole compiler
-toolchain) and only happens once.
+4. Open `ESP32S3PlantMonitor/ESP32S3PlantMonitor.ino`.
 
-**3. Install the libraries.** Tools → Manage Libraries, then install each:
+5. Under Tools, select board **ESP32S3 Dev Module**, pick the board's COM
+   port, and set **USB CDC On Boot** to match the socket you're using
+   (Disabled for the UART/CP210x port, Enabled for the native USB port).
 
-| Library | Used for |
-|---|---|
-| `Adafruit BME280 Library` | temperature, humidity, pressure |
-| `Adafruit Unified Sensor` | dependency of the above — accept when prompted |
-| `Adafruit NeoPixel` | the onboard status LED |
-| `ArduinoJson` | talking to Firebase (**must be version 7**) |
-| `U8g2` | the OLED screen |
+6. Upload, then open Serial Monitor at 115200 baud.
 
-ArduinoJson v7 is not optional: the code uses the bare `JsonDocument` type, which
-v6 doesn't have. There is no library for the BH1750 light sensor — `Sensors.cpp`
-talks to it directly over I2C.
-
-**4. Open the sketch.** File → Open → `ArduinoPlantMonitor/ArduinoPlantMonitor.ino`.
-The other files appear as tabs automatically; that only works because the folder
-and the `.ino` share a name, so don't rename either.
-
-**5. Pick a USB port — the board has two.** They are labelled `UART` and `USB` in
-white silkscreen next to each socket. Not sure which is which? Plug in and look
-in Device Manager under *Ports (COM & LPT)*:
-
-| What appears | Which socket |
-|---|---|
-| `Silicon Labs CP210x` or `USB-SERIAL CH340` | **UART** — recommended |
-| `USB JTAG/serial debug unit` or `ESP32-S3` | native **USB** |
-
-UART is the more forgiving one: it handles the auto-reset handshake, so uploads
-work without touching buttons, and it enumerates whether or not the firmware is
-healthy. The native port depends on the running firmware to present itself, so a
-sketch that crashes early makes it disappear and the board looks bricked when it
-isn't.
-
-**6. Set the board.** Tools → Board → esp32 → **ESP32S3 Dev Module**. Then,
-still under Tools:
-
-- **Port** — the `COM*` that appeared in step 5
-- **USB CDC On Boot** — this must match your socket:
-
-| Socket | USB CDC On Boot |
-|---|---|
-| UART | **Disabled** |
-| USB (native) | **Enabled** |
-
-Get this pairing wrong and everything uploads fine but Serial Monitor stays
-completely blank — a confusing way to lose an hour.
-
-**7. Upload** with the → arrow, then open Serial Monitor and set the baud
-dropdown (bottom right) to **115200**. Press RESET on the board. You should see:
+### 2. Backend (`Backend/`)
 
 ```
-Plant Monitor
-OLED initialized.
-BME280 found at 0x76
-Connecting to WiFi...
-WiFi connected
-System ready!
-```
-
-and a full sensor report every 30 seconds. The OLED runs a loading bar, then
-settles into an animated face.
-
-The onboard LED is a status light: blinking red means it's still trying to join
-WiFi, green for two seconds means it just connected, blue flashes during an
-upload to Firebase, steady orange means the sensors weren't found.
-
-#### If the board misbehaves
-
-| Symptom | Cause |
-|---|---|
-| First compile takes 25+ minutes | Normal — see [If compiling takes forever](#if-compiling-takes-forever) |
-| No `COM` port appears | Charge-only USB cable, or try the other socket |
-| `Secrets.h is missing` | You skipped step 1 |
-| Garbled text like `R~?gB??k??` | Serial Monitor isn't at **115200** |
-| Uploads fine, no serial output | `USB CDC On Boot` doesn't match your socket (step 6) |
-| Upload fails to connect | Hold **BOOT**, tap **RESET**, release **BOOT**, upload again |
-| `Sensor initialization failed`, orange LED | BME280 not answering — check 3V3/GND and that SDA/SCL are on GPIO 8/9 |
-| `text section exceeds available space` | Tools → Partition Scheme → **Huge APP (3MB No OTA)** |
-| Board reboots whenever the pump runs | The 12 V side is browning out the 5 V rail — the pump needs its own supply, sharing only ground |
-
-Wiring, pinout and calibration values are in [ESP_Scripts/Wiring.md](ESP_Scripts/Wiring.md).
-
----
-
-### Part 2 — Backend (FastAPI)
-
-Runs on your machine at `http://localhost:8000`. It loads the ML model, reads the
-latest sensors from Firebase, predicts plant health, and runs the auto-watering
-loop.
-
-**One-time setup**, from the repository root:
-
-```powershell
 python -m venv .venv
-.\.venv\Scripts\Activate.ps1
+.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
 ```
 
-On macOS or Linux the activate line is `source .venv/bin/activate`.
+Run it from the `Backend` directory, since the model path is relative:
 
-> If `Activate.ps1` gives a red "running scripts is disabled" error, run
-> PowerShell once as Administrator and enter:
-> `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`
-
-**Every session:**
-
-```powershell
-.\.venv\Scripts\Activate.ps1
+```
 cd Backend
 uvicorn main:app --reload
 ```
 
-**The `cd Backend` is not optional.** `main.py` looks for the model at the
-relative path `Model/plant_health_rf_model.pkl`, so you must be *inside*
-`Backend` when you start, or you get `FileNotFoundError: Model not found`.
+Serves on `http://localhost:8000`. Watering threshold and pump duration are
+read at startup from `ESP32S3PlantMonitor/Config.h`, so the backend and the
+board always agree on when to water.
 
-You'll know it worked when you see `Uvicorn running on http://127.0.0.1:8000`.
+### 3. Frontend (`Frontend/`)
 
----
-
-### Part 3 — Frontend (React + Vite)
-
-Runs at `http://localhost:5173`. Note that `localhost:5173` is only the delivery
-service — the app itself then runs inside your browser, which is why it can reach
-the backend on `localhost:8000`.
-
-**One-time setup:**
-
-```powershell
+```
 cd Frontend
 npm install
-```
-
-This downloads into `node_modules`, which is deliberately not committed — that's
-why you have to run it yourself after cloning.
-
-**Every session:**
-
-```powershell
-cd Frontend
 npm run dev
 ```
 
-Then open **http://localhost:5173**.
+Serves on `http://localhost:5173`. It talks to the backend at
+`http://localhost:8000` by default; override with `VITE_API_BASE_URL`.
 
-Start the backend first if you can. If you don't, the page still loads but shows
-"Unavailable" where the ML prediction goes — it retries every 30 seconds, so it
-fixes itself once the backend is up.
+## Running it
 
-The backend URL can be overridden with a `VITE_API_BASE_URL` environment
-variable; it defaults to `http://localhost:8000`.
+Start the backend and frontend, each in its own terminal. The board runs
+independently once flashed. It reconnects and resumes on its own after a
+power cycle, no laptop required. The dashboard works with the board offline
+too; it just shows the last readings Firebase has.
 
----
+- `http://localhost:8000/docs`: API reference
+- `http://localhost:8000/plant`: current sensors + health prediction
+- `http://localhost:5173`: dashboard
 
-### Checking it all works
+## Repo structure
 
-The backend and frontend each need their own terminal, because each command runs
-until you stop it with **Ctrl+C**. That's normal — a server is supposed to sit
-there and wait.
-
-| URL | What it should show |
-|---|---|
-| http://localhost:8000 | `{"message":"Plant Health API is running"}` |
-| http://localhost:8000/plant | current sensors + a health prediction |
-| http://localhost:8000/docs | clickable page for every endpoint (free with FastAPI) |
-| http://localhost:5173 | the dashboard |
-
-| Problem | Meaning |
-|---|---|
-| `FileNotFoundError: Model not found` | You forgot `cd Backend` |
-| `'uvicorn' is not recognized` | Virtual environment isn't active |
-| `'vite' is not recognized` | You never ran `npm install` in `Frontend` |
-| `[Errno 10048] address already in use` | Already running in another terminal |
-| ML shows "Unavailable" | Backend isn't running |
-| History tab empty on "1h" | Normal if the board has been off — try 24h or 7d |
-
-**You don't need the hardware to develop.** The board writes to Firebase and
-Firebase keeps that data, so the app has real readings to display even with the
-board switched off. The numbers just stop updating, frozen at the last reading
-sent.
-
----
-
-### If compiling takes forever
-
-The first compile of `ArduinoPlantMonitor` on a machine takes **25–30 minutes**.
-That's expected, since the ESP32 core plus U8g2 comes to a lot of source
-files (a whole `#include` graph)
-
-**Just Let it finish.** Then the build cache will be written, later compiles will be much faster.
-
-| Cache miss scenarios | Reason |
-|---|---|
-| Changing anything in the Tools menu | Board settings are part of the cache identity |
-| Adding or removing an `#include` | The whole dependency scan re-runs |
-| Opening the sketch from a different path | The cache is keyed on the folder path *as text*, e.g.,  `D:\proj` and a symlink `D:\link` pointing at it count as two separate sketches |
-| Not compiling for 30+ days | The cache expires |
+```
+ESP32S3PlantMonitor/   ESP32-S3 firmware (C++, Arduino framework)
+Backend/                FastAPI app, ML model, training script
+Frontend/               React + Vite dashboard
+ESP_Scripts/            Wiring reference and an early MicroPython prototype
+```

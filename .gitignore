@@ -2,4 +2,4 @@
 .idea
 .DS_Store
 __pycache__
-ArduinoPlantMonitor/Secrets.h
+ESP32S3PlantMonitor/Secrets.h

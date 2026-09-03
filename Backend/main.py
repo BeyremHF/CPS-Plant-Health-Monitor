@@ -22,11 +22,11 @@ FIREBASE_URL = (
 MODEL_PATH = "Model/plant_health_rf_model.pkl"
 ENCODER_PATH = "Model/label_encoder.pkl"
 
-# Watering settings are NOT defined here. ArduinoPlantMonitor/Config.h is the
+# Watering settings are NOT defined here. ESP32S3PlantMonitor/Config.h is the
 # single source of truth and this file parses them out of it
 CONFIG_H = (
     pathlib.Path(__file__).resolve().parent.parent
-    / "ArduinoPlantMonitor"
+    / "ESP32S3PlantMonitor"
     / "Config.h"
 )
 
@@ -383,7 +383,7 @@ def start_background_tasks():
             "",
             f"threshold = {SOIL_MOISTURE_THRESHOLD}%   duration = {PUMP_DURATION}s",
             "",
-            "These were NOT read from ArduinoPlantMonitor/Config.h, so they",
+            "These were NOT read from ESP32S3PlantMonitor/Config.h, so they",
             "may not match what the board is actually doing. See the earlier",
             "banner for the cause.",
         )

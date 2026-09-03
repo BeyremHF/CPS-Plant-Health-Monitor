@@ -57,7 +57,7 @@ const HEALTH_MOOD = {
 const DEFAULT_PLANT_SETTINGS = {
   name:          null,
   dotColor:      null,
-  // Mirrors ArduinoPlantMonitor/Config.h. Keep them aligned: these only drive
+  // Mirrors ESP32S3PlantMonitor/Config.h. Keep them aligned: these only drive
   // the per-sensor alert list, never the health verdict.
   thresholds:    { moistureMin: 40, tempMin: 12, tempMax: 35, lightMin: 100 },
   waterDuration: 3,
