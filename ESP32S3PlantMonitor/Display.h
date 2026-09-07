@@ -7,8 +7,7 @@
 #include <Adafruit_ILI9341.h>
 #include "Sensors.h"
 
-// How the plant is doing. This is the "default" the screen falls back to
-// whenever nothing more urgent needs showing.
+
 enum class PlantState {
     HEALTHY,
     MODERATE_STRESSED,
@@ -37,16 +36,14 @@ public:
     void setPlantState(PlantState state);
     PlantState getPlantState() const;
 
-    // Redraw whatever should currently be on screen. Safe to call as often
-    // as you like -- the face animates off millis(), so the more often this
-    // runs the smoother it looks.
+    // Redraw
     void update();
 
-    // Same as update(), but keeps redrawing for durationMs. Use it in place
-    // of delay() so waiting time animates instead of freezing one frame.
+    // Same as update(), but keeps redrawing for durationMs
     void updateFor(unsigned long durationMs);
 
-    // Takeover screens. CONNECTING and PUMPING stay up until you call
+    // Takeover screens. 
+    // CONNECTING and PUMPING stay up until you call
     // clearOverride(); SENSORS clears itself after holdMs.
     void showConnecting();
     void showScanning();
@@ -72,9 +69,7 @@ private:
     SensorData lastData;
     float lastEffectiveLux;
 
-    // millis() at the ambient reading in lastData, so the sensors screen can
-    // say how stale it is. Ambient is carried forward for up to
-    // LIGHT_AMBIENT_MS, so it is usually older than the rest of the row.
+    // millis() at the ambient reading in lastData
     unsigned long lastAmbientAt;
     int pumpDuration;
     int lastAnimationFrame;
@@ -90,8 +85,6 @@ private:
     void drawCentered(const char* text, int y);
 
     void drawFace();
-    // Plays any lopaka-generated 128x64 XBM frame set, stepping every
-    // intervalMs. Works for both faces because it takes the frame table.
     void drawAnimation(
         const uint8_t (*frames)[1024],
         int frameCount,

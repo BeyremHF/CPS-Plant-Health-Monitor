@@ -9,8 +9,8 @@
 unsigned long lastSensorSend = 0;
 Display display;
 
-// What Firebase said about the pump on the most recent poll. Kept so the
-// serial log can report the moment it flips instead of every poll.
+// What Firebase said about the pump on the most recent poll.
+// This is for the serial log
 bool lastPumpTrigger = false;
 
 // Who last asked for water, so the log can say what is actually in charge.
@@ -19,19 +19,16 @@ enum class WaterSource { NONE, REMOTE, FALLBACK };
 WaterSource lastWaterSource = WaterSource::NONE;
 unsigned long lastWaterMs = 0;
 
-// When the soil first dropped below WATERING_THRESHOLD and stayed there.
-// 0 means "not currently dry". This is the clock the fallback runs on.
-unsigned long dryStartMs = 0;
+// When the soil first dropped below WATERING_THRESHOLD and stayed there
+unsigned long dryStartMs = 0; // 0 means "not currently dry"
 
-// When the board last saw someone else set the pump flag. Proof the backend
-// is alive; 0 means it has not been heard from since boot.
+// When the board last saw someone else set the pump flag.
+// Proof the backend is alive (0 means it's not)
 unsigned long lastRemoteMs = 0;
 
 // False until this session has actually measured the soil.
 bool haveReading = false;
 
-// The verdict the backend's model last published, as a slug. Empty until the
-// backend has been heard from; the board does not judge the plant itself.
 String healthSlug = "";
 
 
@@ -83,8 +80,7 @@ const char* waterSourceName(WaterSource source) {
 }
 
 
-// Runs the pump and blocks for the duration. Both the remote path and the
-// fallback path go through here so the logging and the dry-clock reset will always be the same
+// Runs the pump and blocks for the duration
 void runPump(int seconds, WaterSource source) {
     if (isWaterTankEmpty()) {
         Serial.println("[pump] BLOCKED -- water tank is empty");
@@ -107,14 +103,12 @@ void runPump(int seconds, WaterSource source) {
     lastWaterSource = source;
     lastWaterMs = millis();
 
-    // Fresh water means the soil is no longer "continuously dry", so the
-    // fallback clock restarts. Without this the board would pour again on
-    // the very next pass while the reading catches up.
+    // restart fallback clock
     dryStartMs = 0;
 }
 
 
-// Tracks how long the soil has been below the threshold without a break.
+// Tracks how long the soil has been below the threshold without a break
 void updateDryClock(float moisture) {
 
     if (moisture >= WATERING_THRESHOLD) {
@@ -128,7 +122,8 @@ void updateDryClock(float moisture) {
 }
 
 
-// True once the soil has been dry longer than the backend had to react.
+// True once the soil has been dry longer than the backend had to react
+
 bool fallbackDue() {
 
     if (!FALLBACK_ENABLED) {
@@ -357,8 +352,6 @@ bool lightShouldBeOn() {
 
     struct tm now;
 
-    // Short timeout on purpose. getLocalTime() defaults to five seconds, which
-    // would stall the entire loop on every pass while the clock is unset.
     if (!getLocalTime(&now, 10)) {
         lightTimeKnown = false;
         return false;
@@ -366,11 +359,6 @@ bool lightShouldBeOn() {
 
     lightTimeKnown = true;
 
-    // No decision before the first reading exists. Deciding on no data means
-    // deciding "not vetoed", which switches the lamp on and arms the cooldown --
-    // and the cooldown then blocks the correction for a full five minutes once the
-    // first reading disagrees. Waiting up to one sensor cycle costs nothing and
-    // saves a pointless relay cycle on every boot.
     if (!haveAmbient()) {
         return false;
     }
@@ -402,9 +390,7 @@ void applyLight(bool wanted) {
 }
 
 
-// What the board reports back to Firebase. "no_time" is not a lamp fault: it
-// means NTP never answered, so there is no photoperiod to be inside, and the
-// board is refusing to run the lamp at an hour it cannot name.
+// This is what the board reports back to Firebase
 const char* lightStateSlug() {
 
     if (lightIsOn) {
@@ -419,8 +405,8 @@ const char* lightStateSlug() {
 }
 
 
-// Only written when it changes. This loop runs every couple of seconds and the
-// dashboard has no use for a write that often.
+// Only written when it changes
+// This loop only runs every couple of seconds
 void publishLightState() {
 
     static String lastPublished = "";
@@ -558,7 +544,7 @@ void setup() {
         Serial.println("Sensor initialization failed.");
         Serial.println("Retrying in 3 seconds...");
         setLED(255, 80, 0);
-        // Animates the startup bar while waiting, instead of freezing it.
+        // Animates the startup bar while waiting, instead of freezing it
         display.showBoot(
             "Sensors not found",
             false
@@ -600,12 +586,8 @@ void loop() {
     }
 
 
-    // Pump. Read once per pass and remembered, so the sensor report can show
-    // the flag even on passes where nothing fires.
     bool pumpTriggered = checkPump(pump_duration);
 
-    // A trigger raised before this session's first reading predates the soil
-    // data behind it. Drop it; the backend re-raises it if still dry.
     if (pumpTriggered && !haveReading) {
         firebaseRequest(
         "PUT",
@@ -618,8 +600,6 @@ void loop() {
         Serial.print("[pump] trigger is now ");
         Serial.println(pumpTriggered ? "TRUE" : "false");
 
-        // A flag going true is the only evidence the board has that the
-        // backend (or a person) is out there and reacting.
         if (pumpTriggered) {
             lastRemoteMs = millis();
         }
@@ -628,7 +608,7 @@ void loop() {
     }
 
     if (pumpTriggered) {
-        // Cleared first, so a reset mid-pump cannot replay it on the next boot.
+        // Cleared first
         firebaseRequest(
         "PUT",
         "/pump/trigger.json",
@@ -650,8 +630,7 @@ void loop() {
     ) {
         Serial.println("Reading sensors...");
 
-        // readSensors() only takes about 200 ms, so without a short hold the
-        // sensing bar would flash past unseen.
+        // readSensors() only takes about 200 ms
         display.showScanning();
         display.updateFor(SCAN_SCREEN_MS);
 

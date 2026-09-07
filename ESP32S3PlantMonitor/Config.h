@@ -39,9 +39,7 @@
 #define SOIL_DRY 2650
 #define SOIL_WET 950
 
-// Comfortable ranges. The firmware does not act on these: they are here so
-// Frontend/src/App.jsx has one place to mirror for its per-sensor notices.
-// The plant's health verdict comes from the model in Backend/main.py.
+// Comfortable ranges for the plant
 #define MOISTURE_HEALTHY_MIN  40.0   // %
 // Basil base temp ~10.9-12.1 C, optimal MDT 32.6-35.5 C: doi.org/10.1371/journal.pone.0294905
 #define TEMP_MIN              12.0   // degrees C
@@ -49,8 +47,7 @@
 // Not the lamp's control threshold either
 #define LIGHT_MIN            100.0   // lux
 
-// Watering. THIS FILE IS THE SINGLE SOURCE OF TRUTH:
-// Backend/main.py parses them out of here at startup
+// Watering. THIS FILE IS THE SINGLE SOURCE OF TRUTH
 #define WATERING_THRESHOLD    40.0
 #define WATERING_PUMP_SECONDS 2
 
@@ -62,8 +59,8 @@
 #define LIGHT_CONTROL_ENABLED  1
 #define LIGHT_HOUR_START       6      // local hour, inclusive
 #define LIGHT_HOUR_END        22      // local hour, exclusive -- 16 h of light
-#define LIGHT_VETO_LUX       300.0    // above this ambient, the lamp is pointless
-#define LIGHT_VETO_CLEAR_LUX 200.0    // below this the veto lifts; the gap stops chatter
+#define LIGHT_VETO_LUX       300.0    // above this ambient, the lamp is pointless (veto)
+#define LIGHT_VETO_CLEAR_LUX 200.0    // below this the veto lifts (for hysteresis)
 #define LIGHT_COOLDOWN_MS   300000UL  // relay cannot switch again for 5 min
 #define LIGHT_MANUAL_MS     7200000UL // a manual "on" reverts to auto after 2 h
 

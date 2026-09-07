@@ -22,16 +22,16 @@ FIREBASE_URL = (
 MODEL_PATH = "Model/plant_health_rf_model.pkl"
 ENCODER_PATH = "Model/label_encoder.pkl"
 
-# Watering settings are NOT defined here. ESP32S3PlantMonitor/Config.h is the
-# single source of truth and this file parses them out of it
+# Watering settings are NOT defined here. 
+# ESP32S3PlantMonitor/Config.h is the single source of truth
+# and this file parses them out of it
 CONFIG_H = (
     pathlib.Path(__file__).resolve().parent.parent
     / "ESP32S3PlantMonitor"
     / "Config.h"
 )
 
-# Set to False by read_firmware_define() if anything went wrong, so the warning
-# can be repeated later instead of scrolling away behind uvicorn's banner.
+# Set to False by read_firmware_define() if anything went wrong
 firmware_config_ok = True
 
 
@@ -322,8 +322,6 @@ def activate_pump(pump_request: PumpRequest = PumpRequest()):
         )
 
 
-# The backend's own clock: classify the plant for the board, then water it if
-# the soil says so. Runs whether or not anyone has the dashboard open.
 def background_loop():
     while True:
         try:
@@ -376,8 +374,7 @@ def start_background_tasks():
             f"for {PUMP_DURATION}s, in sync with the firmware"
         )
     else:
-        # Repeated here on purpose: the import-time banner has by now scrolled
-        # away behind uvicorn's startup output.
+        # Repeated here on purpose
         loud_warning(
             "The backend is running on FALLBACK watering values.",
             "",

@@ -7,8 +7,7 @@
 #include "AnimationStress.h"
 #include <WiFi.h>
 #include <time.h>
-// Frame counts come straight from the headers, so regenerating an animation
-// with a different length cannot desync this.
+// Frame counts come straight from the headers
 static const int HAPPY_FRAMES =
     sizeof(Happy_frames) / sizeof(Happy_frames[0]);
 
