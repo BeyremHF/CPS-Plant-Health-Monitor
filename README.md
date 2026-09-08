@@ -52,6 +52,14 @@ for a live view and manual control.
 Full pinout, I2C addresses, and soil-moisture calibration values are in
 [ESP_Scripts/Wiring.md](ESP_Scripts/Wiring.md).
 
+## Submission Materials
+
+`Submission/` holds the project write-up, slides, and demo:
+- `CPS_Project_Technical_Report.pdf`: the technical report
+- `Autonomous_Plant_Keeper_Presentation.pptx`: the presentation slides
+- `Autonomous_Plant_Keeper_Slides.pdf`: the same presentation slides as a PDF, without the video
+- `PlantKeeper_Demo.mov`: a video demo of the system in use
+
 ## Tech stack
 
 - **Firmware**: C++ on the Arduino framework, targeting the ESP32-S3, flashed
