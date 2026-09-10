@@ -49,16 +49,13 @@ for a live view and manual control.
 - SH1106 128x64 I2C OLED display
 - Adafruit NeoPixel (single RGB LED) for status
 
-Full pinout, I2C addresses, and soil-moisture calibration values are in
-[ESP_Scripts/Wiring.md](ESP_Scripts/Wiring.md).
-
 ## Submission Materials
 
-`Submission/` holds the project write-up, slides, and demo:
-- `CPS_Project_Technical_Report.pdf`: the technical report
-- `Autonomous_Plant_Keeper_Presentation.pptx`: the presentation slides
-- `Autonomous_Plant_Keeper_Slides.pdf`: the same presentation slides as a PDF, without the video
-- `PlantKeeper_Demo.mov`: a video demo of the system in use
+[`Submission/`](Submission/) holds the project write-up, slides, and demo:
+- [`CPS_Project_Technical_Report.pdf`](Submission/CPS_Project_Technical_Report.pdf): the technical report
+- [`Presentation_Autonomous_Plant_Keeper.pptx`](Submission/Presentation_Autonomous_Plant_Keeper.pptx): the presentation slides
+- [`Autonomous_Plant_Keeper_Slides.pdf`](Submission/Autonomous_Plant_Keeper_Slides.pdf): the same presentation slides as a PDF, without the video
+- [`PlantKeeper_Demo.mov`](Submission/PlantKeeper_Demo.mov): a video demo of the system in use
 
 ## Tech stack
 
@@ -70,10 +67,11 @@ Full pinout, I2C addresses, and soil-moisture calibration values are in
 
 ## Setup
 
-### 1. Firmware (`ESP32S3PlantMonitor/`)
+### 1. Firmware ([`ESP32S3PlantMonitor/`](ESP32S3PlantMonitor/))
 
-1. Copy the secrets template and fill in your Wi-Fi credentials (2.4 GHz,
-   since the ESP32-S3 can't join a 5 GHz-only network):
+1. Copy the secrets template ([`Secrets.example.h`](ESP32S3PlantMonitor/Secrets.example.h))
+   and fill in your Wi-Fi credentials (2.4 GHz, since the ESP32-S3 can't join
+   a 5 GHz-only network):
 
    ```
    copy ESP32S3PlantMonitor\Secrets.example.h ESP32S3PlantMonitor\Secrets.h
@@ -100,7 +98,7 @@ Full pinout, I2C addresses, and soil-moisture calibration values are in
    - `ArduinoJson` (v7)
    - `U8g2`
 
-4. Open `ESP32S3PlantMonitor/ESP32S3PlantMonitor.ino`.
+4. Open [`ESP32S3PlantMonitor/ESP32S3PlantMonitor.ino`](ESP32S3PlantMonitor/ESP32S3PlantMonitor.ino).
 
 5. Under Tools, select board **ESP32S3 Dev Module**, pick the board's COM
    port, and set **USB CDC On Boot** to match the socket you're using
@@ -108,7 +106,7 @@ Full pinout, I2C addresses, and soil-moisture calibration values are in
 
 6. Upload, then open Serial Monitor at 115200 baud.
 
-### 2. Backend (`Backend/`)
+### 2. Backend ([`Backend/`](Backend/))
 
 ```
 python -m venv .venv
@@ -116,7 +114,7 @@ python -m venv .venv
 pip install -r requirements.txt
 ```
 
-Run it from the `Backend` directory, since the model path is relative:
+Run it from the [`Backend`](Backend/) directory, since the model path is relative:
 
 ```
 cd Backend
@@ -124,10 +122,10 @@ uvicorn main:app --reload
 ```
 
 Serves on `http://localhost:8000`. Watering threshold and pump duration are
-read at startup from `ESP32S3PlantMonitor/Config.h`, so the backend and the
-board always agree on when to water.
+read at startup from [`ESP32S3PlantMonitor/Config.h`](ESP32S3PlantMonitor/Config.h),
+so the backend and the board always agree on when to water.
 
-### 3. Frontend (`Frontend/`)
+### 3. Frontend ([`Frontend/`](Frontend/))
 
 ```
 cd Frontend
@@ -151,9 +149,7 @@ too; it just shows the last readings Firebase has.
 
 ## Repo structure
 
-```
-ESP32S3PlantMonitor/   ESP32-S3 firmware (C++, Arduino framework)
-Backend/                FastAPI app, ML model, training script
-Frontend/               React + Vite dashboard
-ESP_Scripts/            Wiring reference and an early MicroPython prototype
-```
+- [`ESP32S3PlantMonitor/`](ESP32S3PlantMonitor/): ESP32-S3 firmware (C++, Arduino framework)
+- [`Backend/`](Backend/): FastAPI app, ML model, training script
+- [`Frontend/`](Frontend/): React + Vite dashboard
+- [`Submission/`](Submission/): project write-up, slides, and demo video
